@@ -97,4 +97,6 @@ for i = 1:idxCnt
 end
 
 %% animation
-animateLinkMotion(tAnimate,yAnimate,params,phi,2);
+figureNum = 2; % window number
+speed = 2.5; % speed of animating
+animateLinkMotion(tAnimate,yAnimate,params,phi,2,speed);

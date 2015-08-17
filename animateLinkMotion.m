@@ -1,4 +1,4 @@
-function [ output_args ] = animateLinkMotion( t,y,params,phi,figNum )
+function [ output_args ] = animateLinkMotion( t,y,params,phi,figNum,speed )
 %ANIMATELINKMOTION Animation of the motion of a single link (with a hard
 %constraint surface)
 %   
@@ -62,7 +62,7 @@ function [ output_args ] = animateLinkMotion( t,y,params,phi,figNum )
    
         refreshdata
         drawnow
-        pause(2.5*(t(i) - t(i-1)));        
+        pause(speed*(t(i) - t(i-1)));        
     end
 
 end
