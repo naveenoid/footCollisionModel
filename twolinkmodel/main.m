@@ -38,11 +38,14 @@ model.leg.I = legI + upperBodyI;
 %%Initial state
 q = pi/2;
 v2 = iDynTree.Twist();
+v2.zero();
 qdot = 0;
 
-xpos_0 = [0; 0; 10;...
-    quaternionFromEulerRotation(0, [1;0;0]);...
-    q];
+xpos_0 = [0; 
+          0; 
+          10;...
+          quaternionFromEulerRotation(0, [1;0;0]);...
+           q];
 xdot_0 = [v2.toMatlab(); qdot];
 x0 = [xpos_0; xdot_0];
 
@@ -52,25 +55,39 @@ fc.zero();
 tspan = [0, 10];
 
 options = odeset('OutputFcn', @odeplot,...
-                  'OutputSel',1,'Refine',4);
+                  'OutputSel',[1:3],'Refine',4);
 
-
+              global acc Fs;
+acc = [];
+Fs = [];
+              
 [t,y] =  ode45(@(t,x)odefunc(t, x, fc, model), ...
        tspan, x0', options);
-   
+
+%    figure();
+% plot(acc(1,:),acc(2,:)); %x linear
+% hold on;
+% plot(acc(1,:),acc(6,:)); %y angular
+% plot(acc(1,:),acc(7,:)); %z angular
 
 end
 
 function dx = odefunc(t,x, fc, model)
-    a = twolink_dynamic(t, x, 0, fc, model);
-    xpos = x(1:7);
-    xdot = x(9:9+5);
-    qDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
+global acc Fs;
+    [a, F] = twolink_dynamic(t, x, 0, fc, model);
+    
+    xpos = x(1:7); %base position
+%     q = x(8); %joint position
+    xdot = x(9:9+5); %base velocity
+    qdot = x(9+6); %joint velocity
+    quatDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
     
     dx = [xdot(1:3);
-          qDot;
-          xdot(end);
+          quatDot;
+          qdot;
           a];
+      acc = [acc, [t;a]];
+      Fs = [Fs, [t; F]];
 end
 
 function status = myodeplot(t,y,flag)

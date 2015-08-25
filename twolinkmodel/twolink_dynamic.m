@@ -1,4 +1,4 @@
-function a = twolink_dynamic(~, x, u, fext, model)
+function [a, F] = twolink_dynamic(~, x, u, fext, model)
 %% x: state (base position, q, base velocity, qdot)
 %% u: torque at the joint
 %% fext: external forces
@@ -46,7 +46,7 @@ v1 = v2 + Sqdot;
 fc = f2_X_inertial * fext;
 
 %define inertias (in the v2 frame)
-I1 = f2_X_inertial * model.leg.I;
+I1 = f2_X_f1 * model.leg.I;
 I2 = model.foot.I;
 I1mat = I1.asMatrix().toMatlab();
 I2mat = I2.asMatrix().toMatlab();
@@ -55,7 +55,7 @@ I2mat = I2.asMatrix().toMatlab();
 v1xI1v1 = iDynTree.Wrench(v1.cross(I1.multiply(v1)));
 v2xI2v2 = iDynTree.Wrench(v2.cross(I2.multiply(v2)));
 b1 = v1xI1v1 - (I1 * (f1_X_inertial * gravity)) - f_act;
-b2 = v2xI2v2 - (I1 * (f2_X_inertial * gravity)) + f_act;
+b2 = v2xI2v2 - (I2 * (f2_X_inertial * gravity)) + f_act;
 
 SI = S / (S' * I1mat * S);
 Q1 = I1mat * SI * S' * I1mat;
@@ -70,9 +70,16 @@ qddot = -inv(S'*I1mat*S) * (S' * I1mat * a2 + S' * I1mat * Sdot * qdot + S' * b1
 % a1 = a2 + S*qddot + Sdot * qdot;
 
 %now transform the output back into inertial frame
-a2Wrench = iDynTree.SpatialAcc();
-a2Wrench.fromMatlab(a2);
-a2_inertial = f2_X_inertial.inverse() * a2Wrench;
+a2Acc = iDynTree.SpatialAcc();
+% a2Acc.fromMatlab(-inv(I2mat) * b2.toMatlab());
+a2Acc.fromMatlab(a2);
+a2_inertial = f2_X_inertial.inverse() * a2Acc;
+
+% a = [a2_inertial.toMatlab(); 0];
+
+
 a = [a2_inertial.toMatlab(); qddot];
+
+F = [b1.toMatlab(); b2.toMatlab()];
 
 end
