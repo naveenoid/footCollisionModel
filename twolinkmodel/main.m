@@ -55,9 +55,10 @@ fc.zero();
 tspan = [0, 10];
 
 options = odeset('OutputFcn', @odeplot,...
-                  'OutputSel',[1:3],'Refine',4);
+                  'OutputSel',[1:3],'Refine',4,...
+                  'RelTol', 1e-5);
 
-              global acc Fs;
+global acc Fs;
 acc = [];
 Fs = [];
               
