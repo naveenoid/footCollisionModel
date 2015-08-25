@@ -5,10 +5,11 @@ clc;
 
 %%Model: two links - One dof
 model = struct();
+%note: numbers are random for now :D
 %foot: box
-model.foot.mass = 0.2;
-model.foot.length = 0.2;
-model.foot.height = 0.05;
+model.foot.mass = 0.2; %kg
+model.foot.length = 0.2; %m
+model.foot.height = 0.05; %m
 %foot reference frame: bottom-left angle
 rotI = iDynTree.RotationalInertiaRaw();
 rotI.zero();
@@ -50,13 +51,18 @@ fc.zero();
 
 tspan = [0, 10];
 
+options = odeset('OutputFcn', @odeplot,...
+                  'OutputSel',1,'Refine',4);
+
+
 [t,y] =  ode45(@(t,x)odefunc(t, x, fc, model), ...
-       tspan, x0');
+       tspan, x0', options);
+   
 
 end
 
 function dx = odefunc(t,x, fc, model)
-    a = twolink_dynamic(t, x, fc, model);
+    a = twolink_dynamic(t, x, 0, fc, model);
     xpos = x(1:7);
     xdot = x(9:9+5);
     qDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
@@ -65,4 +71,15 @@ function dx = odefunc(t,x, fc, model)
           qDot;
           xdot(end);
           a];
+end
+
+function status = myodeplot(t,y,flag)
+if (status == 'init')
+    %do init stuff
+elseif (status == 'done')
+    %do done stuff
+else
+    
+end
+status = 0;
 end
