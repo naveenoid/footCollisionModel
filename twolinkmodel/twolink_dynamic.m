@@ -7,7 +7,7 @@ function [a, F] = twolink_dynamic(~, x, u, fext, model)
 %create the gravity acceleration in the inertial frame
 gravity = iDynTree.SpatialAcc();
 gravity.zero();
-gravity.setVal(2, -9.81); %z direction
+gravity.setVal(2, -9.81/9.81); %z direction
 
 %get the inputs (in the inertial frame)
 x_pos = x(1:8);
