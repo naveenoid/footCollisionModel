@@ -39,6 +39,7 @@ model.leg.I = legI + upperBodyI;
 q = pi/2;
 v2 = iDynTree.Twist();
 v2.zero();
+v2.setVal(1, 10);
 qdot = 0;
 
 xpos_0 = [0; 
@@ -55,7 +56,7 @@ fc.zero();
 tspan = [0, 10];
 
 options = odeset('OutputFcn', @odeplot,...
-                  'OutputSel',[1:3],'Refine',4,...
+                  'OutputSel',[1:3,8],'Refine',4,...
                   'RelTol', 1e-5);
 
 global acc Fs;
