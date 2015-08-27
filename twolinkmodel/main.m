@@ -12,7 +12,7 @@ environment.plane_inclination = 10 / 180 * pi;
 model = struct();
 %note: numbers are random for now :D
 %foot: box
-model.foot.mass = 0.2; %kg
+model.foot.mass = 0.4; %kg
 model.foot.length = 0.2; %m
 model.foot.height = 0.05; %m
 %foot reference frame: bottom-left angle
@@ -31,11 +31,11 @@ model.leg.length = 0.4;
 model.leg.mass = 10;
 model.upperbody.mass = 20;
 rotI.zero();
-rotI.setVal(1,1,1); rotI.setVal(2, 2,1);
+rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
 rotI.setVal(0, 0, model.leg.mass/3 * model.leg.length^2);
 legI = iDynTree.SpatialInertia(model.leg.mass, iDynTree.Position(0, 0, model.leg.length / 2), rotI);
 rotI.zero();
-rotI.setVal(1,1,1); rotI.setVal(2, 2,1);
+rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
 rotI.setVal(0,0, model.upperbody.mass * model.leg.length^2);
 upperBodyI = iDynTree.SpatialInertia(model.upperbody.mass, iDynTree.Position(0, 0, model.leg.length), rotI);
 model.leg.I = legI + upperBodyI;
@@ -45,13 +45,13 @@ q = pi/2;
 v2 = iDynTree.Twist();
 v2.zero();
 v2.setVal(1, 0);
-v2.setVal(3, 0.2);
+v2.setVal(3, 0);
 qdot = 0;
 
 xpos_0 = [0; 
           0; 
           10;...
-          quaternionFromEulerRotation(0.3, [1;0;0]);...
+          quaternionFromEulerRotation(0, [1;0;0]);...
            q];
        
 xdot_0 = [v2.toMatlab(); qdot];
@@ -64,8 +64,8 @@ tspan = [0, 10];
 
 options = odeset('OutputFcn', @odeplot,...
                   'OutputSel',[1:3],'Refine',4,...
-                  'RelTol', 1e-5, ...
-                  'Events', @(t,y)collisionDetection(t,y,environment,model));
+                  'RelTol', 1e-5);%, ...
+              %    'Events', @(t,y)collisionDetection(t,y,environment,model));
 
 %first state: free flying state              
 odesol =  ode45(@(t,x)odefunc(t, x, fc, model), ...
@@ -98,7 +98,9 @@ else
 %     odesol =  ode45(@(t,x)odefunc(t, x, fc, model), ...
 %                     tspan, x0, options);
 %    
+
 end
+legend('x','y','z');
 
 % figure();
 % rot = zeros(length(t), 3);

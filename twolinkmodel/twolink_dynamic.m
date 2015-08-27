@@ -7,9 +7,9 @@ function [a, F] = twolink_dynamic(~, x, u, fext, model)
 %create the gravity acceleration in the inertial frame
 gravity = iDynTree.SpatialAcc();
 gravity.zero();
-gravity.setVal(2, -9.81/9.81); %z direction
+gravity.setVal(2, -9.81); %z direction index 2 in is C (i.e. z direction)
 
-%get the inputs (in the inertial frame)
+%get the inputs (in the inertial frame) splitting positions and velocitires
 x_pos = x(1:8);
 assert(length(x_pos) == 8);
 xdot = x(9:end);
@@ -18,6 +18,7 @@ assert(length(xdot) == 7);
 v2 = iDynTree.Twist(); %this is w.r.t the inertial frame
 v2.fromMatlab(xdot(1:6));
 qdot = xdot(end);
+q = x(8); % joint angle
 
 %Motion constraint matrix
 S = zeros(6,1);
@@ -34,8 +35,8 @@ f2_rotation.fromMatlab(rotationFromQuaternion(x_pos(4:7)));
 %transformations
 inertial_X_f2 = iDynTree.Transform(f2_rotation, f2_position);
 %model.foot.joint_X_frame < == > joint = f1, frame = f2
-f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(x(8)), -model.foot.joint_X_frame);
-inertial_X_f1 = inertial_X_f2 * f2_X_f1;
+f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(q), -model.foot.joint_X_frame);
+inertial_X_f1 = inertial_X_f2 * f2_X_f1; % for completeness sake but we do not integrate twist of link 1
 
 v2 = inertial_X_f2.inverse() * v2; %now v2 is in the f2 frame
 S = inertial_X_f2.inverse().asAdjointTransform().toMatlab() * S; %S expressed in 2
@@ -76,7 +77,7 @@ d = -Q1 * Sdot * qdot - I1mat * SI * S' * b1.toMatlab() + I1mat * Sdot * qdot + 
 %compute acceleration of base frame (and foot)
 a2 = (I1mat + I2mat - Q1) \ (fc.toMatlab() - b2.toMatlab() - d);
 %compute acceleration of the joint
-qddot = -inv(S'*I1mat*S) * (S' * I1mat * a2 + S' * I1mat * Sdot * qdot + S' * b1.toMatlab());
+qddot = -(S'*I1mat*S) \ (S' * I1mat * a2 + S' * I1mat * Sdot * qdot + S' * b1.toMatlab());
 %acceleration of the leg is not used in the integration. Yet it can be
 %computed by knowing the acceleration of the base the that of the joint
 % a1 = a2 + S*qddot + Sdot * qdot;
