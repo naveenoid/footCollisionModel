@@ -64,11 +64,11 @@ tspan = [0, 10];
 
 options = odeset('OutputFcn', @odeplot,...
                   'OutputSel',[1:3],'Refine',4,...
-                  'RelTol', 1e-5);%, ...
-              %    'Events', @(t,y)collisionDetection(t,y,environment,model));
+                  'RelTol', 1e-5, ...
+                  'Events', @(t,y)collisionDetection(t,y,environment, model));
 
 %first state: free flying state              
-odesol =  ode45(@(t,x)odefunc(t, x, fc, model), ...
+odesol =  ode45(@(t,x)odefunc(t, x, fc, [], model), ...
                 tspan, x0', options);
    
 if (odesol.x(end) == tspan(end))
@@ -85,9 +85,15 @@ else
     % - add position constraint of the contact point
     
     %reset initial state
-    x0 = odesol.y(end,:);
+    x0 = odesol.y(:, end);
     x0(9:11) = 0; %set linear twist to zero
     tspan(1) = odesol.x(end);
+    
+    if (odesol.ie == 1)
+        constraint = 'left_corner';
+    else
+        constraint = 'right_corner';
+    end
     
     options = odeset('OutputFcn', @odeplot,...
                   'OutputSel',[1:3],'Refine',4,...
@@ -95,10 +101,8 @@ else
                   'Events', @(t,y)fullContactCondition(t,y,environment,model));
 
     %second state: establishing full contact
-%     odesol =  ode45(@(t,x)odefunc(t, x, fc, model), ...
-%                     tspan, x0, options);
-%    
-
+    odesol =  ode45(@(t,x)odefunc(t, x, fc, constraint, model), ...
+                    tspan, x0, options);
 end
 legend('x','y','z');
 
@@ -118,7 +122,7 @@ legend('x','y','z');
 
 end
 
-function dx = odefunc(t,x, fc, model)
+function dx = odefunc(t,x, fc, constaints, model)
 % global acc Fs;
     damp = 3;
     
@@ -129,7 +133,7 @@ function dx = odefunc(t,x, fc, model)
     quatDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
     
     u =0;% - damp * qdot;
-    [a, F] = twolink_dynamic(t, x, u, fc, model);
+    [a, F] = twolink_dynamic(t, x, u, fc, constaints, model);
     
     dx = [xdot(1:3);
           quatDot;
@@ -157,21 +161,10 @@ end
 
 function [value,isterminal,direction] = fullContactCondition(~,y, environment, model)
     xpos = y(1:7); %base position
-    xposLin = xpos(1:3);
     xposRotation = rotationFromQuaternion(xpos(4:7));
+    [xRotation, ~, ~] = rpyFromRotation(xposRotation);
     
-    %check the lowest (z) point of the foot
-    x1Pos = xposLin;
-    x2Pos = xposLin + xposRotation * [0;model.foot.length; 0];
-    
-    distance = x1Pos(2);
-    height = x1Pos(3);
-    if (x2Pos(3) < x1Pos(3));
-        distance = x2Pos(2);
-        height = x2Pos(3);
-    end
-    
-    value = height + distance * sin(environment.plane_inclination);
+    value = xRotation + environment.plane_inclination;
     
     isterminal = 1;
     direction = -1;    
