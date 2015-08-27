@@ -72,22 +72,54 @@ f2_d = -f2_I1mat * f2_ApparentIInv * f2_I1mat * f2_Sdot * qdot ...
        -f2_I1mat * f2_ApparentIInv * f2_b1.toMatlab() + f2_I1mat * f2_Sdot * qdot + f2_b1.toMatlab();
 
 %%Constraints
-w_J = [];
+f2_T = [];
+constraintsSize = 0;
 if (~isempty(constraints))
     if (strcmpi(constraints, 'left_corner'))
         w_J = w_X_f2.asAdjointTransform().toMatlab();
+        w_T = w_J';% [eye(3); zeros(3)];
+        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+        f2_T = f2_T(:,1:3);
+        constraintsSize = 3;
     elseif (strcmpi(constraints, 'right_corner'))
         leftToRightTranslation_f2 = iDynTree.Position(0, model.foot.length, 0);
         identity = iDynTree.Rotation.Identity();
         tranlation_f2 = iDynTree.Transform(identity, leftToRightTranslation_f2);
         tranlation_f2 = w_X_f2 * tranlation_f2;
         w_J = tranlation_f2.asAdjointTransform().toMatlab();
+        w_T = w_J';% [eye(3); zeros(3)];
+        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+        f2_T = f2_T(:,1:3);
+        constraintsSize = 3;
     elseif (strcmpi(constraints, 'foot'))
+%         w_J = [];
+        w_T = eye(6);
+        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+        constraintsSize = 6;
     end
+%     f2_J = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_J;
+    
 end
 
 %compute acceleration of base frame (and foot)
-f2_a2 = (f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat) \ (f2_fc.toMatlab() - f2_b2.toMatlab() - f2_d);
+% f2_a2 = (f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat) \ (f2_fc.toMatlab() - f2_b2.toMatlab() - f2_d);
+
+%write system as A x = b
+% f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), - f2_T;
+%         zeros(size(f2_J, 1)), f2_J  / (f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat) * f2_T];
+% f2_b = [- f2_b2.toMatlab() - f2_d; ];
+f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), f2_T;
+          f2_T', zeros(constraintsSize)];
+f2_b = [-f2_b2.toMatlab() - f2_d; zeros(constraintsSize, 1)];
+
+f2_sol = f2_A \ f2_b;
+f2_a2 = f2_sol(1:6);
+
+%%Sanity checks
+if (constraintsSize > 0)
+    assert(any(abs(f2_T' * f2_v2Mat) < 1e-15),'Contraint equation: T^t v = 0');
+    assert(any(abs(f2_T' * f2_a2) < 1e-15),'Acceleration contraint equation: T^t a = 0');
+end
 
 %compute acceleration of the joint
 qddot = -(f2_S'*f2_I1mat*f2_S) \ (f2_S' * f2_I1mat * f2_a2 + f2_S' * f2_I1mat * f2_Sdot * qdot + f2_S' * f2_b1.toMatlab());

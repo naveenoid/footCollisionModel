@@ -60,7 +60,7 @@ x0 = [xpos_0; xdot_0];
 fc = iDynTree.Wrench();
 fc.zero();
 
-tspan = [0, 10];
+tspan = [0, 5];
 
 options = odeset('OutputFcn', @odeplot,...
                   'OutputSel',[1:3],'Refine',4,...
@@ -70,12 +70,16 @@ options = odeset('OutputFcn', @odeplot,...
 %first state: free flying state              
 odesol =  ode45(@(t,x)odefunc(t, x, fc, [], model), ...
                 tspan, x0', options);
-   
+
+wholeSolution.t = odesol.x;
+wholeSolution.y = odesol.y;
+wholeSolution.event = [];
+
 if (odesol.x(end) == tspan(end))
-    fprintf('No collision detected before t=%f\n',odesol.x(end));
+    fprintf('Free-Flying state - No collision detected before t=%f\n',odesol.x(end));
 else
-    twistAtImpact = odesol.y(end,9:end-1);
-    fprintf('Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
+    twistAtImpact = odesol.y(9:end-1, end);
+    fprintf('Free-Flying state - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
     disp('Twist at impact is')
     disp(twistAtImpact')
     %I should start again to integrate but
@@ -95,30 +99,68 @@ else
         constraint = 'right_corner';
     end
     
+    wholeSolution.event = [wholeSolution.event, odesol.x(end)];
+    
     options = odeset('OutputFcn', @odeplot,...
-                  'OutputSel',[1:3],'Refine',4,...
+                  'OutputSel',[8],'Refine',4,...
                   'RelTol', 1e-5, ...
                   'Events', @(t,y)fullContactCondition(t,y,environment,model));
 
     %second state: establishing full contact
     odesol =  ode45(@(t,x)odefunc(t, x, fc, constraint, model), ...
                     tspan, x0, options);
+                
+    wholeSolution.t = [wholeSolution.t, odesol.x];
+    wholeSolution.y = [wholeSolution.y, odesol.y];
+    
+                
+    if (odesol.x(end) == tspan(end))
+        fprintf('SinglePoint Contact state - No collision detected before t=%f\n',odesol.x(end));
+    else
+        twistAtImpact = odesol.y(9:end-1, end);
+        fprintf('SinglePoint Contact - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
+        disp('Twist at impact is')
+        disp(twistAtImpact')
+
+        %reset initial state
+        x0 = odesol.y(:, end);
+        x0(9:11) = 0; %set linear twist to zero
+        tspan(1) = odesol.x(end);
+
+        constraint = 'foot';
+
+        wholeSolution.event = [wholeSolution.event, odesol.x(end)];
+        
+        options = odeset('OutputFcn', @odeplot,...
+                      'OutputSel',[1:3],'Refine',4,...
+                      'RelTol', 1e-5);
+
+        %third state: full contact
+        odesol =  ode45(@(t,x)odefunc(t, x, fc, constraint, model), ...
+                        tspan, x0, options);
+
+        wholeSolution.t = [wholeSolution.t, odesol.x];
+        wholeSolution.y = [wholeSolution.y, odesol.y];
+    end
+
 end
 legend('x','y','z');
 
-% figure();
-% rot = zeros(length(t), 3);
-% for i = 1: length(t)
-%     quat = y(i, 4:7);
-%     [roll,pitch,yaw] =  rpyFromRotation(rotationFromQuaternion(quat'));
-%     rot(i, :) = [roll,pitch,yaw];
-% end
-% 
-% plot(t, rot);
-% plot(acc(1,:),acc(2,:)); %x linear
-% hold on;
-% plot(acc(1,:),acc(6,:)); %y angular
-% plot(acc(1,:),acc(7,:)); %z angular
+figure();
+rot = zeros(length(wholeSolution.t), 3);
+for i = 1: length(wholeSolution.t)
+    quat = wholeSolution.y(4:7, i);
+    [roll,pitch,yaw] = rpyFromRotation(rotationFromQuaternion(quat'));
+    rot(i, :) = [roll,pitch,yaw];
+end
+plot(wholeSolution.t, rot(:,1)');
+hold on;
+plot(wholeSolution.t, wholeSolution.y(1:3, :));
+legend('rotx','x','y','z');
+yl = ylim;
+for i = 1:length(wholeSolution.event)
+    line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
+end
 
 end
 
@@ -169,4 +211,3 @@ function [value,isterminal,direction] = fullContactCondition(~,y, environment, m
     isterminal = 1;
     direction = -1;    
 end
-
