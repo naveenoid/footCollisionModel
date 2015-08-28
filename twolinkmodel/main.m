@@ -124,7 +124,7 @@ else
 
         %reset initial state
         x0 = odesol.y(:, end);
-        x0(9:11) = 0; %set linear twist to zero
+        x0(9:9+5) = 0; %set linear twist to zero
         tspan(1) = odesol.x(end);
 
         constraint = 'foot';
@@ -161,6 +161,15 @@ yl = ylim;
 for i = 1:length(wholeSolution.event)
     line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
 end
+
+figure();
+plot(wholeSolution.t, wholeSolution.y(8, :));
+legend('q');
+yl = ylim;
+for i = 1:length(wholeSolution.event)
+    line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
+end
+
 
 end
 
