@@ -57,8 +57,8 @@ xpos_0 = [0;
 xdot_0 = [v2.toMatlab(); qdot];
 x0 = [xpos_0; xdot_0];
 
-fc = iDynTree.Wrench();
-fc.zero();
+f_ext = iDynTree.Wrench();
+f_ext.zero();
 
 tspan = [0, 5];
 
@@ -68,7 +68,7 @@ options = odeset('OutputFcn', @odeplot,...
                   'Events', @(t,y)collisionDetection(t,y,environment, model));
 
 %first state: free flying state              
-odesol =  ode45(@(t,x)odefunc(t, x, fc, [], model), ...
+odesol =  ode45(@(t,x)odefunc(t, x, f_ext, [], model), ...
                 tspan, x0', options);
 
 wholeSolution.t = odesol.x;
@@ -107,7 +107,7 @@ else
                   'Events', @(t,y)fullContactCondition(t,y,environment,model));
 
     %second state: establishing full contact
-    odesol =  ode45(@(t,x)odefunc(t, x, fc, constraint, model), ...
+    odesol =  ode45(@(t,x)odefunc(t, x, f_ext, constraint, model), ...
                     tspan, x0, options);
                 
     wholeSolution.t = [wholeSolution.t, odesol.x];
@@ -136,7 +136,7 @@ else
                       'RelTol', 1e-5);
 
         %third state: full contact
-        odesol =  ode45(@(t,x)odefunc(t, x, fc, constraint, model), ...
+        odesol =  ode45(@(t,x)odefunc(t, x, f_ext, constraint, model), ...
                         tspan, x0, options);
 
         wholeSolution.t = [wholeSolution.t, odesol.x];
@@ -173,18 +173,18 @@ end
 
 end
 
-function dx = odefunc(t,x, fc, constaints, model)
+function dx = odefunc(t,x, f_ext, constaints, model)
 % global acc Fs;
-    damp = 3;
+    damp = 0.5;
     
     xpos = x(1:7); %base position
-%     q = x(8); %joint position
+     q = x(8); %joint position
     xdot = x(9:9+5); %base velocity
     qdot = x(9+6); %joint velocity
     quatDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
     
-    u =0;% - damp * qdot;
-    [a, F] = twolink_dynamic(t, x, u, fc, constaints, model);
+    u = -2 * (q - pi/2) - damp * qdot;
+    [a, f_c] = twolink_dynamic(t, x, u, f_ext, constaints, model);
     
     dx = [xdot(1:3);
           quatDot;

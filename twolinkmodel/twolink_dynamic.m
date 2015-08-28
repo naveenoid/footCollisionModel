@@ -1,7 +1,7 @@
-function [w_a, F] = twolink_dynamic(~, x, u, fext, constraints, model)
+function [w_a, w_f_c] = twolink_dynamic(~, x, u, ~, constraints, model)
 % x: state (base position (7), q (1), base velocity (6), qdot (1))
 % u: torque at the joint
-% fext: external forces
+% fext: external wrench --- not used for now in our simulation
 % constraints: either 'foot' or 'left_corner' or 'right_corner' (or empty)
 % model: the model
 
@@ -22,8 +22,8 @@ qdot = xdot(end);
 q = x(8); % joint angle
 
 %Motion constraint matrix
-w_S = zeros(6,1);
-w_S(4) = 1; %rotation along x rotational-axis
+pj_f2_S = zeros(6,1); %written w.r.t origin in joint, orientation of f_2
+pj_f2_S(4) = 1; %rotation along x rotational-axis
 
 w_position_f2 = iDynTree.Position(x_pos(1), x_pos(2), x_pos(3));
 w_R_f2 = iDynTree.Rotation();
@@ -33,10 +33,12 @@ w_R_f2.fromMatlab(rotationFromQuaternion(x_pos(4:7)));
 w_X_f2 = iDynTree.Transform(w_R_f2, w_position_f2);
 %model.foot.joint_X_frame < == > joint = f1, frame = f2
 f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(q), -model.foot.joint_X_frame);
+f2_X_pj_f2 = iDynTree.Transform(iDynTree.Rotation.Identity, -model.foot.joint_X_frame);
 w_X_f1 = w_X_f2 * f2_X_f1; % for completeness sake but we do not integrate twist of link 1
 
 f2_v2 = w_X_f2.inverse() * w_v2; %now v2 is in the f2 frame
-f2_S = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_S; %S expressed in 2
+% f2_S = w_X_f2.inverse().asAdjointTransform().toMatlab() * pj_f2_S; %S expressed in 2
+f2_S = f2_X_pj_f2.asAdjointTransform().toMatlab() * pj_f2_S; %S expressed in 2, origin in 2
 
 f2_v2Mat = f2_v2.toMatlab();
 f2_v2Mat_linear = f2_v2Mat(1:3);
@@ -53,7 +55,7 @@ f2_Sqdot.fromMatlab(f2_S * qdot);
 f2_v1 = f2_v2 + f2_Sqdot; %v1 is in the f2 frame
 
 %external force in the v2 frame
-f2_fc = w_X_f2.inverse() * fext; %to be modified
+% w_X_f2.inverse() * fext; %to be modified
 
 %define inertias (in the v2 frame)
 f2_I1 = f2_X_f1 * model.leg.I;
@@ -114,6 +116,11 @@ f2_b = [-f2_b2.toMatlab() - f2_d; zeros(constraintsSize, 1)];
 
 f2_sol = f2_A \ f2_b;
 f2_a2 = f2_sol(1:6);
+w_f_c = [];
+if (constraintsSize > 0)
+    %output the constraint foce
+%     w_f_c = w_X_f2.asAdjointTransform().toMatlab() * f2_sol(7:end);
+end
 
 %%Sanity checks
 if (constraintsSize > 0)
