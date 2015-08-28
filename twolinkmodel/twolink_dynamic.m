@@ -32,8 +32,8 @@ w_R_f2.fromMatlab(rotationFromQuaternion(x_pos(4:7)));
 %transformations
 w_X_f2 = iDynTree.Transform(w_R_f2, w_position_f2);
 %model.foot.joint_X_frame < == > joint = f1, frame = f2
-f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(q), -model.foot.joint_X_frame);
-f2_X_pj_f2 = iDynTree.Transform(iDynTree.Rotation.Identity, -model.foot.joint_X_frame);
+f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(q), model.foot.joint_X_frame);
+f2_X_pj_f2 = iDynTree.Transform(iDynTree.Rotation.Identity, model.foot.joint_X_frame);
 w_X_f1 = w_X_f2 * f2_X_f1; % for completeness sake but we do not integrate twist of link 1
 
 f2_v2 = w_X_f2.inverse() * w_v2; %now v2 is in the f2 frame

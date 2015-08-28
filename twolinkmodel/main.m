@@ -41,7 +41,7 @@ upperBodyI = iDynTree.SpatialInertia(model.upperbody.mass, iDynTree.Position(0, 
 model.leg.I = legI + upperBodyI;
 
 %%Initial state
-q = pi/2;
+q = 0;%pi/2;
 v2 = iDynTree.Twist();
 v2.zero();
 v2.setVal(1, 0);
@@ -50,7 +50,7 @@ qdot = 0;
 
 xpos_0 = [0; 
           0; 
-          20;...
+          0.5;...
           quaternionFromEulerRotation(0, [1;0;0]);...
            q];
        
@@ -60,24 +60,34 @@ x0 = [xpos_0; xdot_0];
 f_ext = iDynTree.Wrench();
 f_ext.zero();
 
-tspan = [0, 5];
+tspan = [0, 1.75];
 
-options = odeset('OutputFcn', @odeplot,...
+options = odeset(...%'OutputFcn', @odeplot,...
                   'OutputSel',[1:3],'Refine',4,...
                   'RelTol', 1e-5, ...
+                  'MaxStep',1e-2,...
                   'Events', @(t,y)collisionDetection(t,y,environment, model));
 
-impCtrlParams.damp = 0.5;
-impCtrlParams.stiffness = 10;
+impCtrlParams.damp = 0;%0.5;
+impCtrlParams.stiffness = 0;%10;
               
+fprintf('\nPhase 1\n----------\n');
+
 impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
 %first state: free flying state              
 odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, [], model), ...
-                tspan, x0', options);
+                linspace(tspan(1),tspan(2),100), x0', options);
 
 wholeSolution.t = odesol.x;
 wholeSolution.y = odesol.y;
 wholeSolution.event = [];
+ 
+
+phase  = struct;
+phase(1).t = wholeSolution.t;
+phase(1).y = wholeSolution.y;
+%animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
+  
 
 if (odesol.x(end) == tspan(end))
     fprintf('Free-Flying state - No collision detected before t=%f\n',odesol.x(end));
@@ -105,19 +115,22 @@ else
     
     wholeSolution.event = [wholeSolution.event, odesol.x(end)];
     
-    options = odeset('OutputFcn', @odeplot,...
+    options = odeset(...%'OutputFcn', @odeplot,...
                   'OutputSel',[8],'Refine',4,...
                   'RelTol', 1e-5, ...
+                  'MaxStep',1e-2,...
                   'Events', @(t,y)fullContactCondition(t,y,environment,model));
-
+    fprintf('\nPhase 2\n----------\n');
     %second state: establishing full contact
     odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-                    tspan, x0, options);
+                    linspace(tspan(1),tspan(2),100), x0, options);
                 
     wholeSolution.t = [wholeSolution.t, odesol.x];
     wholeSolution.y = [wholeSolution.y, odesol.y];
-    
-                
+    phase(2).t = wholeSolution.t;
+    phase(2).y = wholeSolution.y;
+    %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
+                 
     if (odesol.x(end) == tspan(end))
         fprintf('SinglePoint Contact state - No collision detected before t=%f\n',odesol.x(end));
     else
@@ -135,16 +148,20 @@ else
 
         wholeSolution.event = [wholeSolution.event, odesol.x(end)];
         
-        options = odeset('OutputFcn', @odeplot,...
+        options = odeset(...%,'OutputFcn', @odeplot,..
                       'OutputSel',[1:3],'Refine',4,...
+                      'MaxStep',1e-2,...
                       'RelTol', 1e-5);
-
+        fprintf('\nPhase 3\n----------\n');
         %third state: full contact
         odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-                        tspan, x0, options);
+                        linspace(tspan(1),tspan(2),100), x0, options);
 
         wholeSolution.t = [wholeSolution.t, odesol.x];
         wholeSolution.y = [wholeSolution.y, odesol.y];
+        phase(3).t = wholeSolution.t;
+        phase(3).y = wholeSolution.y;
+        %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
     end
 
 end
@@ -174,6 +191,10 @@ for i = 1:length(wholeSolution.event)
     line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
 end
 
+
+%for i = 1:3
+    animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,4,10);
+%end
 
 end
 
