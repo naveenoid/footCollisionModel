@@ -50,7 +50,7 @@ qdot = 0;
 
 xpos_0 = [0; 
           0; 
-          10;...
+          20;...
           quaternionFromEulerRotation(0, [1;0;0]);...
            q];
        
@@ -67,8 +67,12 @@ options = odeset('OutputFcn', @odeplot,...
                   'RelTol', 1e-5, ...
                   'Events', @(t,y)collisionDetection(t,y,environment, model));
 
+impCtrlParams.damp = 0.5;
+impCtrlParams.stiffness = 10;
+              
+impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
 %first state: free flying state              
-odesol =  ode45(@(t,x)odefunc(t, x, f_ext, [], model), ...
+odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, [], model), ...
                 tspan, x0', options);
 
 wholeSolution.t = odesol.x;
@@ -107,7 +111,7 @@ else
                   'Events', @(t,y)fullContactCondition(t,y,environment,model));
 
     %second state: establishing full contact
-    odesol =  ode45(@(t,x)odefunc(t, x, f_ext, constraint, model), ...
+    odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
                     tspan, x0, options);
                 
     wholeSolution.t = [wholeSolution.t, odesol.x];
@@ -136,7 +140,7 @@ else
                       'RelTol', 1e-5);
 
         %third state: full contact
-        odesol =  ode45(@(t,x)odefunc(t, x, f_ext, constraint, model), ...
+        odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
                         tspan, x0, options);
 
         wholeSolution.t = [wholeSolution.t, odesol.x];
@@ -173,17 +177,22 @@ end
 
 end
 
-function dx = odefunc(t,x, f_ext, constaints, model)
-% global acc Fs;
-    damp = 0.5;
+function u = impedanceCtrl(~, x, ref, params)
+    q = x(8); %joint positiony
+    qdot = x(9+6); %joint velocity
     
+    u = -params.stiffness * (q - ref) ...
+        - params.damp * qdot;
+end
+
+function dx = odefunc(t,x, controlfunc, f_ext, constaints, model)    
     xpos = x(1:7); %base position
-     q = x(8); %joint position
+%      q = x(8); %joint position
     xdot = x(9:9+5); %base velocity
     qdot = x(9+6); %joint velocity
     quatDot = quaternionDerivative(xpos(4:end), xdot(4:end), 1);
     
-    u = -2 * (q - pi/2) - damp * qdot;
+    u = controlfunc(t, x);
     [a, f_c] = twolink_dynamic(t, x, u, f_ext, constaints, model);
     
     dx = [xdot(1:3);

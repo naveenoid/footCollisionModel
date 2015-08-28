@@ -119,7 +119,7 @@ f2_a2 = f2_sol(1:6);
 w_f_c = [];
 if (constraintsSize > 0)
     %output the constraint foce
-%     w_f_c = w_X_f2.asAdjointTransform().toMatlab() * f2_sol(7:end);
+    w_f_c = w_X_f2.asAdjointTransform().toMatlab() * f2_T * (-f2_sol(7:end));
 end
 
 %%Sanity checks
