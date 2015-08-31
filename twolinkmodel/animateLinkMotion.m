@@ -89,8 +89,8 @@ function [ output_args ] = animateLinkMotion( t,y,model,phi,figNum,timeScale )
     %h = plot([0 0 2*l 2*l 0],[l*sin(phi) (l*sin(phi)+2*w) (l*sin(phi)+2*w) l*sin(phi) l*sin(phi)],'Color','k','LineWidth',2); 
 
     %% axis
-    axis([-2*w2 2*l2*cos(phi)+2*w2 -(l1+l2*sin(phi)) l1+l2]);
-    axis equal;
+    axis([-2*w2 2*l2*cos(phi)+2*w2 -(0.5*l1+l2) l1+l2]);
+   axis equal;
 
     h2 = text(1.5*l2,1.5*l2,sprintf('t = %2.2f sec',0));
     

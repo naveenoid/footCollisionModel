@@ -1,200 +1,215 @@
 function main()
 
-addpath(genpath('utilities'));
+    addpath(genpath('utilities'));
 
-clear;
-clc;
-close all;
+    clear;
+    clc;
+    close all;
 
-environment.plane_inclination = 10 / 180 * pi;
+    environment.plane_inclination = 10 / 180 * pi;
 
-%%Model: two links - One dof
-model = struct();
-%note: numbers are random for now :D
-%foot: box
-model.foot.mass = 0.4; %kg
-model.foot.length = 0.2; %m
-model.foot.height = 0.05; %m
-%foot reference frame: bottom-left angle
-rotI = iDynTree.RotationalInertiaRaw();
-rotI.zero();
-rotI.setVal(1,1,1); rotI.setVal(2, 2,1);
-rotI.setVal(0, 0, model.foot.mass/3 * (model.foot.length^2 + model.foot.height^2));
-pos = iDynTree.Position(0, ...
-    model.foot.length / 2, model.foot.height / 2);
-model.foot.I = iDynTree.SpatialInertia(model.foot.mass, pos, rotI);
-model.foot.joint_X_frame = iDynTree.Position(0, model.foot.length / 3, model.foot.height);
+    %%Model: two links - One dof
+    model = struct();
+    %note: numbers are random for now :D
+    %foot: box
+    model.foot.mass = 0.4; %kg
+    model.foot.length = 0.2; %m
+    model.foot.height = 0.05; %m
+    %foot reference frame: bottom-left angle
+    rotI = iDynTree.RotationalInertiaRaw();
+    rotI.zero();
+    rotI.setVal(1,1,1); rotI.setVal(2, 2,1);
+    rotI.setVal(0, 0, model.foot.mass/3 * (model.foot.length^2 + model.foot.height^2));
+    pos = iDynTree.Position(0, ...
+        model.foot.length / 2, model.foot.height / 2);
+    model.foot.I = iDynTree.SpatialInertia(model.foot.mass, pos, rotI);
+    model.foot.joint_X_frame = iDynTree.Position(0, model.foot.length / 3, model.foot.height);
 
-%leg: rod with uniform mass + an additional mass attached to one end.
-%reference frame at the joint (one end of the rod)
-model.leg.length = 0.4;
-model.leg.mass = 10;
-model.upperbody.mass = 20;
-rotI.zero();
-rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
-rotI.setVal(0, 0, model.leg.mass/3 * model.leg.length^2);
-legI = iDynTree.SpatialInertia(model.leg.mass, iDynTree.Position(0, 0, model.leg.length / 2), rotI);
-rotI.zero();
-rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
-rotI.setVal(0,0, model.upperbody.mass * model.leg.length^2);
-upperBodyI = iDynTree.SpatialInertia(model.upperbody.mass, iDynTree.Position(0, 0, model.leg.length), rotI);
-model.leg.I = legI + upperBodyI;
+    %leg: rod with uniform mass + an additional mass attached to one end.
+    %reference frame at the joint (one end of the rod)
+    model.leg.length = 0.4;
+    model.leg.mass = 10;
+    model.upperbody.mass = 20;
+    rotI.zero();
+    rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
+    rotI.setVal(0, 0, model.leg.mass/3 * model.leg.length^2);
+    legI = iDynTree.SpatialInertia(model.leg.mass, iDynTree.Position(0, 0, model.leg.length / 2), rotI);
+    rotI.zero();
+    rotI.setVal(1,1,0.1); rotI.setVal(2, 2,0.1);
+    rotI.setVal(0,0, model.upperbody.mass * model.leg.length^2);
+    upperBodyI = iDynTree.SpatialInertia(model.upperbody.mass, iDynTree.Position(0, 0, model.leg.length), rotI);
+    model.leg.I = legI + upperBodyI;
 
-%%Initial state
-q = 0;%pi/2;
-v2 = iDynTree.Twist();
-v2.zero();
-v2.setVal(1, 0);
-v2.setVal(3, 0);
-qdot = 0;
+    %%Initial state
+    q = 0;%pi/2;
+    v2 = iDynTree.Twist();
+    v2.zero();
+    v2.setVal(1, 0);
+    v2.setVal(3, 0);
+    qdot = 0;
 
-xpos_0 = [0; 
-          0; 
-          0.5;...
-          quaternionFromEulerRotation(0, [1;0;0]);...
-           q];
-       
-xdot_0 = [v2.toMatlab(); qdot];
-x0 = [xpos_0; xdot_0];
+    xpos_0 = [0; 
+              0; 
+              0.5;...
+              quaternionFromEulerRotation(0, [1;0;0]);...
+               q];
 
-f_ext = iDynTree.Wrench();
-f_ext.zero();
+    xdot_0 = [v2.toMatlab(); qdot];
+    x0 = [xpos_0; xdot_0];
 
-tspan = [0, 1.75];
+    f_ext = iDynTree.Wrench();
+    f_ext.zero();
 
-options = odeset(...%'OutputFcn', @odeplot,...
-                  'OutputSel',[1:3],'Refine',4,...
-                  'RelTol', 1e-5, ...
-                  'MaxStep',1e-2,...
-                  'Events', @(t,y)collisionDetection(t,y,environment, model));
+    tspan = [0, 1.75];
 
-impCtrlParams.damp = 0;%0.5;
-impCtrlParams.stiffness = 0;%10;
-              
-fprintf('\nPhase 1\n----------\n');
+    phaseEvent = {@(t,y)collisionDetection(t,y,environment, model),...
+        @(t,y)fullContactCondition(t,y,environment,model),...
+        []};
+    phaseConstraints = {[],'corner','foot'};    
+    phaseName = {'Free-flight','Single-point contact','Full-Foot contact'};
 
-impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
-%first state: free flying state              
-odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, [], model), ...
-                linspace(tspan(1),tspan(2),100), x0', options);
-
-wholeSolution.t = odesol.x;
-wholeSolution.y = odesol.y;
-wholeSolution.event = [];
- 
-
-phase  = struct;
-phase(1).t = wholeSolution.t;
-phase(1).y = wholeSolution.y;
-%animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
-  
-
-if (odesol.x(end) == tspan(end))
-    fprintf('Free-Flying state - No collision detected before t=%f\n',odesol.x(end));
-else
-    twistAtImpact = odesol.y(9:end-1, end);
-    fprintf('Free-Flying state - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
-    disp('Twist at impact is')
-    disp(twistAtImpact')
-    %I should start again to integrate but
-    %I need to:
-    % - v_0 = v^- (angular), 0 * v^- (linear) (only angular twist is
-    % preserved)
-    % - add position constraint of the contact point
+    phaseResetStateIdx = {9:11,9:9+5,[]};
+    impCtrlParams.damp = 0;%0.5;
+    impCtrlParams.stiffness = 0;%10;
     
-    %reset initial state
-    x0 = odesol.y(:, end);
-    x0(9:11) = 0; %set linear twist to zero
-    tspan(1) = odesol.x(end);
-    
-    if (odesol.ie == 1)
-        constraint = 'left_corner';
-    else
-        constraint = 'right_corner';
+    plots = 'noPlots'; %noPlots or makePlots
+    animation = 'makeAnimation'; %noAnimation or makeAnimation
+
+    impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
+    for phase = 1:3
+
+        fprintf('\nPhase %d\n----------\n',phase);
+
+        %% setting options
+       % options = odeset(...%'OutputFcn', @odeplot,...
+                     % 'OutputSel',[1:3],'Refine',4,...
+     %                 'RelTol', 1e-5, ...
+                     % 'MaxStep',1e-2,...
+      %                'Events',phaseEvent{phase} );
+        options = odeset('RelTol', 1e-5,'Events',phaseEvent{phase} );
+        %first state: free flying state              
+        odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, phaseConstraints{phase}, model), ...
+                        tspan, x0', options);
+
+        wholeSolution.t = odesol.x;
+        wholeSolution.y = deval(odesol,linspace(odesol.x(1),odesol.x(end),100));
+
+        wholeSolution.event = [];
+
+        if (odesol.x(end) == tspan(end))
+
+            if(phase<3)
+                fprintf('%s Phase - No collision detected before t=%f\n',phaseName{phase},odesol.x(end));
+            else
+                fprintf('%s Phase - terminal time t = %f\n',phaseName{phase},odesol.x(end));
+            end
+        else
+            twistAtImpact = odesol.y(9:end-1, end);
+            fprintf('%s Phase - Collision detected at time t=%f for event %d\n',phaseName{phase},odesol.x(end), odesol.ie);
+            disp('Twist at impact is')
+            disp(twistAtImpact')
+            %I should start again to integrate but
+            %I need to:
+            % - v_0 = v^- (angular), 0 * v^- (linear) (only angular twist is
+            % preserved)
+            % - add position constraint of the contact point
+
+            %reset initial state
+            x0 = odesol.y(:, end);
+            x0(phaseResetStateIdx{phase}) = 0; %set linear twist to zero
+            tspan(1) = odesol.x(end);
+
+            if (phase == 1 && odesol.ie == 1)
+                phaseConstraints{2} = 'left_corner';
+            else
+                phaseConstraints{2} = 'right_corner';
+            end
+
+            wholeSolution.event = [wholeSolution.event, odesol.x(end)];
+        end
+
+    %         options = odeset(...%'OutputFcn', @odeplot,...
+    %                       'OutputSel',[8],'Refine',4,...
+    %                       'RelTol', 1e-5, ...
+    %                       'MaxStep',1e-2,...
+    %                       'Events', );
+    %         fprintf('\nPhase 2\n----------\n');
+    %         %second state: establishing full contact
+    %         odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
+    %                         linspace(tspan(1),tspan(2),100), x0, options);
+    % 
+    %         wholeSolution.t = [wholeSolution.t, odesol.x];
+    %         wholeSolution.y = [wholeSolution.y, odesol.y];
+            %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
+
+    %         if (odesol.x(end) == tspan(end))
+    %             fprintf('SinglePoint Contact state - No collision detected before t=%f\n',odesol.x(end));
+    %         else
+    %             twistAtImpact = odesol.y(9:end-1, end);
+    %             fprintf('SinglePoint Contact - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
+    %             disp('Twist at impact is')
+    %             disp(twistAtImpact')
+
+    %             %reset initial state
+    %             x0 = odesol.y(:, end);
+    %             x0(9:9+5) = 0; %set linear twist to zero
+    %             tspan(1) = odesol.x(end);
+
+    %             constraint = 'foot';
+    % 
+    %             wholeSolution.event = [wholeSolution.event, odesol.x(end)];
+    % 
+    %             options = odeset(...%,'OutputFcn', @odeplot,..
+    %                           'OutputSel',[1:3],'Refine',4,...
+    %                           'MaxStep',1e-2,...
+    %                           'RelTol', 1e-5);
+    %                 fprintf('\nPhase 3\n----------\n');
+    %                 %third state: full contact
+    %                 odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
+    %                                 linspace(tspan(1),tspan(2),100), x0, options);
+    % 
+    %                 wholeSolution.t = [wholeSolution.t, odesol.x];
+    %                 wholeSolution.y = [wholeSolution.y, odesol.y];
+                %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
+
+         %   end
+
+      %  end
     end
     
-    wholeSolution.event = [wholeSolution.event, odesol.x(end)];
     
-    options = odeset(...%'OutputFcn', @odeplot,...
-                  'OutputSel',[8],'Refine',4,...
-                  'RelTol', 1e-5, ...
-                  'MaxStep',1e-2,...
-                  'Events', @(t,y)fullContactCondition(t,y,environment,model));
-    fprintf('\nPhase 2\n----------\n');
-    %second state: establishing full contact
-    odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-                    linspace(tspan(1),tspan(2),100), x0, options);
-                
-    wholeSolution.t = [wholeSolution.t, odesol.x];
-    wholeSolution.y = [wholeSolution.y, odesol.y];
-    phase(2).t = wholeSolution.t;
-    phase(2).y = wholeSolution.y;
-    %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
-                 
-    if (odesol.x(end) == tspan(end))
-        fprintf('SinglePoint Contact state - No collision detected before t=%f\n',odesol.x(end));
-    else
-        twistAtImpact = odesol.y(9:end-1, end);
-        fprintf('SinglePoint Contact - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
-        disp('Twist at impact is')
-        disp(twistAtImpact')
+    %legend('x','y','z');
 
-        %reset initial state
-        x0 = odesol.y(:, end);
-        x0(9:9+5) = 0; %set linear twist to zero
-        tspan(1) = odesol.x(end);
+    if(strcmp(plots,'makePlots') == 1)
+        figure();
+        rot = zeros(length(wholeSolution.t), 3);
+        for i = 1: length(wholeSolution.t)
+            quat = wholeSolution.y(4:7, i);
+            [roll,pitch,yaw] = rpyFromRotation(rotationFromQuaternion(quat'));
+            rot(i, :) = [roll,pitch,yaw];
+        end
+        plot(wholeSolution.t, rot(:,1)');
+        hold on;
+        plot(wholeSolution.t, wholeSolution.y(1:3, :));
+        legend('rotx','x','y','z');
+        yl = ylim;
+        for i = 1:length(wholeSolution.event)
+            line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
+        end
 
-        constraint = 'foot';
-
-        wholeSolution.event = [wholeSolution.event, odesol.x(end)];
-        
-        options = odeset(...%,'OutputFcn', @odeplot,..
-                      'OutputSel',[1:3],'Refine',4,...
-                      'MaxStep',1e-2,...
-                      'RelTol', 1e-5);
-        fprintf('\nPhase 3\n----------\n');
-        %third state: full contact
-        odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-                        linspace(tspan(1),tspan(2),100), x0, options);
-
-        wholeSolution.t = [wholeSolution.t, odesol.x];
-        wholeSolution.y = [wholeSolution.y, odesol.y];
-        phase(3).t = wholeSolution.t;
-        phase(3).y = wholeSolution.y;
-        %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
+        figure();
+        plot(wholeSolution.t, wholeSolution.y(8, :));
+        legend('q');
+        yl = ylim;
+        for i = 1:length(wholeSolution.event)
+            line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
+        end
     end
-
-end
-legend('x','y','z');
-
-figure();
-rot = zeros(length(wholeSolution.t), 3);
-for i = 1: length(wholeSolution.t)
-    quat = wholeSolution.y(4:7, i);
-    [roll,pitch,yaw] = rpyFromRotation(rotationFromQuaternion(quat'));
-    rot(i, :) = [roll,pitch,yaw];
-end
-plot(wholeSolution.t, rot(:,1)');
-hold on;
-plot(wholeSolution.t, wholeSolution.y(1:3, :));
-legend('rotx','x','y','z');
-yl = ylim;
-for i = 1:length(wholeSolution.event)
-    line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
-end
-
-figure();
-plot(wholeSolution.t, wholeSolution.y(8, :));
-legend('q');
-yl = ylim;
-for i = 1:length(wholeSolution.event)
-    line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
-end
-
-
-%for i = 1:3
-    animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,4,10);
-%end
+    
+    %for i = 1:3
+    if(strcmp(animation,'makeAnimation')==1)
+        animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,4,10);
+    end
 
 end
 
