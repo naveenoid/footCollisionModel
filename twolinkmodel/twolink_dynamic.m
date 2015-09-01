@@ -120,19 +120,30 @@ end
 % f2_a2 = (f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat) \ (f2_fc.toMatlab() - f2_b2.toMatlab() - f2_d);
 
 %write system as A x = b
-% f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), - f2_T;
-%         zeros(size(f2_J, 1)), f2_J  / (f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat) * f2_T];
-% f2_b = [- f2_b2.toMatlab() - f2_d; ];
-f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), f2_T;
-          f2_T', zeros(constraintsSize)];
-f2_b = [-f2_b2.toMatlab() - f2_d; -f2_dT_times_v];
+% f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), f2_T;
+%           f2_T', zeros(constraintsSize)];
+% f2_b = [-f2_b2.toMatlab() - f2_d; -f2_dT_times_v];
+% (f2_S'*f2_I1mat*f2_S) qddot = - (f2_S' * f2_I1mat * f2_a2 ...
+%                                  + f2_S' * f2_I1mat * f2_Sdot * qdot + f2_S' * f2_b1.toMatlab());
 
-f2_sol = f2_A \ f2_b;
+f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), zeros(6,1),                 f2_T;
+         f2_S' * f2_I1mat,                                             f2_S'*f2_I1mat*f2_S,        zeros(1, constraintsSize);
+          f2_T',                                                       zeros(constraintsSize, 1),  zeros(constraintsSize)];
+      
+D_scaling = max(f2_A, [], 2);
+f2_b = [-f2_b2.toMatlab() - f2_d;
+        -(f2_S' * f2_I1mat * f2_Sdot * qdot + f2_S' * f2_b1.toMatlab());
+        -f2_dT_times_v];
+
+f2_sol = (diag(1./D_scaling) * f2_A) \ (diag(1./D_scaling) * f2_b);
+
 f2_a2 = f2_sol(1:6);
+qddot = f2_sol(7);
 w_f_c = [];
+
 if (constraintsSize > 0)
     %output the constraint foce
-    w_f_c = w_X_f2.asAdjointTransform().toMatlab() * f2_T * (-f2_sol(7:end));
+    w_f_c = w_X_f2.asAdjointTransform().toMatlab() * f2_T * (-f2_sol(8:end));
 end
 
 %%Sanity checks
@@ -141,8 +152,6 @@ if (constraintsSize > 0)
     assert(any(abs(f2_T' * f2_a2) < 1e-15),'Acceleration contraint equation: T^t a = 0');
 end
 
-%compute acceleration of the joint
-qddot = -(f2_S'*f2_I1mat*f2_S) \ (f2_S' * f2_I1mat * f2_a2 + f2_S' * f2_I1mat * f2_Sdot * qdot + f2_S' * f2_b1.toMatlab());
 %acceleration of the leg is not used in the integration. Yet it can be
 %computed by knowing the acceleration of the base the that of the joint
 % a1 = a2 + S*qddot + Sdot * qdot;
