@@ -69,12 +69,16 @@ function [wholeSolution,model,environment] =  main(plane_incl)
     phaseConstraints = {[],'corner','foot'};    
     phaseName = {'Free-flight','Single-point contact','Full-Foot contact'};
 
-    phaseResetOperator = {[], zeros(6), []};
+    phaseResetOperator = {[zeros(3), zeros(3); zeros(3), eye(3)], zeros(6), []};
     % phaseResetStateIdx = {9:11,9:9+5,[]};
     impCtrlParams.damp = 0;%0.5;
     impCtrlParams.stiffness = 0;%10;
 
     impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
+    
+    wholeSolution.t = [];
+    wholeSolution.y = [];
+    wholeSolution.event = [];
     for phase = 1:3
 
         fprintf('\nPhase %d\n----------\n',phase);
@@ -90,10 +94,8 @@ function [wholeSolution,model,environment] =  main(plane_incl)
         odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, phaseConstraints{phase}, model), ...
                         tspan, x0', options);
 
-        wholeSolution.t = odesol.x;
-        wholeSolution.y = deval(odesol,linspace(odesol.x(1),odesol.x(end),100));
-
-        wholeSolution.event = [];
+        wholeSolution.t = [wholeSolution.t, odesol.x];
+        wholeSolution.y = [wholeSolution.y, odesol.y];% deval(odesol,linspace(odesol.x(1),odesol.x(end),100));
 
         if (odesol.x(end) == tspan(end))
 
@@ -117,7 +119,7 @@ function [wholeSolution,model,environment] =  main(plane_incl)
             x0 = odesol.y(:, end);
             
             operator = phaseResetOperator{phase};
-            x0(phaseResetStateIdx{phase}) = 0; %set linear twist to zero
+%             x0(phaseResetStateIdx{phase}) = 0; %set linear twist to zero
             tspan(1) = odesol.x(end);
 
             if (phase == 1 && odesol.ie == 1)
