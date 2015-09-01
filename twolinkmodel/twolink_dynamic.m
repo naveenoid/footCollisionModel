@@ -16,7 +16,7 @@ assert(length(x_pos) == 8);
 xdot = x(9:end);
 assert(length(xdot) == 7);
 %link 2 (foot) is also the base 
-w_v2 = iDynTree.Twist(); %this is w.r.t the inertial frame
+w_v2 = iDynTree.Twist(); %this is w.r.t orientation in inertial, position in f2
 w_v2.fromMatlab(xdot(1:6));
 qdot = xdot(end);
 q = x(8); % joint angle
@@ -25,27 +25,24 @@ q = x(8); % joint angle
 pj_f2_S = zeros(6,1); %written w.r.t origin in joint, orientation of f_2
 pj_f2_S(4) = 1; %rotation along x rotational-axis
 
-w_position_f2 = iDynTree.Position(x_pos(1), x_pos(2), x_pos(3));
 w_R_f2 = iDynTree.Rotation();
 w_R_f2.fromMatlab(rotationFromQuaternion(x_pos(4:7)));
 
 %transformations
-w_X_f2 = iDynTree.Transform(w_R_f2, w_position_f2);
+w_X_f2 = iDynTree.Transform(w_R_f2, iDynTree.Position(x_pos(1), x_pos(2), x_pos(3)));
 %model.foot.joint_X_frame < == > joint = f1, frame = f2
 f2_X_f1 = iDynTree.Transform(iDynTree.Rotation.RotX(q), model.foot.joint_X_frame);
 f2_X_pj_f2 = iDynTree.Transform(iDynTree.Rotation.Identity, model.foot.joint_X_frame);
 w_X_f1 = w_X_f2 * f2_X_f1; % for completeness sake but we do not integrate twist of link 1
 
-f2_v2 = w_X_f2.inverse() * w_v2; %now v2 is in the f2 frame
+pf2_w_X_f2 = iDynTree.Transform(w_R_f2, iDynTree.Position());
+f2_v2 = pf2_w_X_f2.inverse() * w_v2; %now v2 is in the f2 frame
 % f2_S = w_X_f2.inverse().asAdjointTransform().toMatlab() * pj_f2_S; %S expressed in 2
 f2_S = f2_X_pj_f2.asAdjointTransform().toMatlab() * pj_f2_S; %S expressed in 2, origin in 2
 
 f2_v2Mat = f2_v2.toMatlab();
-f2_v2Mat_linear = f2_v2Mat(1:3);
-f2_v2Mat_angular = f2_v2Mat(4:end);
-f2_Sdot = [skew(f2_v2Mat_angular),  skew(f2_v2Mat_linear);
-           zeros(3,3),              skew(f2_v2Mat_angular)] * f2_S;
-    
+f2_Sdot = crossMotion(f2_v2Mat) * f2_S;
+           
 %wrench induced by the actuation
 f2_f_act = iDynTree.Wrench();
 f2_f_act.fromMatlab(f2_S * u / norm(f2_S));
@@ -75,32 +72,48 @@ f2_d = -f2_I1mat * f2_ApparentIInv * f2_I1mat * f2_Sdot * qdot ...
 
 %%Constraints
 f2_T = [];
+f2_dT_times_v = [];
 constraintsSize = 0;
 if (~isempty(constraints))
     if (strcmpi(constraints, 'left_corner'))
-        w_J = w_X_f2.asAdjointTransform().toMatlab();
-        w_T = w_J';% [eye(3); zeros(3)];
-        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
-        f2_T = f2_T(:,1:3);
+%         f2_T = w_X_f2.inverse().asAdjointTransformWrench().toMatlab * [eye(3); zeros(3)];
+%         f2_T = pf2_w_X_f2.inverse().asAdjointTransformWrench().toMatlab * [eye(3); zeros(3)];
+        f2_T = [eye(3); zeros(3)];
+        w_dT = crossStar(w_v2.toMatlab) * (w_X_f2.asAdjointTransformWrench().toMatlab * f2_T);
+        f2_dT = w_X_f2.inverse().asAdjointTransformWrench().toMatlab * w_dT;
+        f2_dT_times_v = 0*(f2_dT(:,1:3))' * f2_v2Mat;
+        
+%         base_T_trasp_times_v = (f2_T(:,1:3))' * f2_v2Mat
+%         world_T_trasp_times_v = [eye(3); zeros(3)]' * w_v2.toMatlab
+%         twist = [f2_v2Mat, w_v2.toMatlab]
+        
+%         w_J = w_X_f2.asAdjointTransform().toMatlab();
+%         w_T = w_J;
+%         f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+%         f2_T = f2_T';
+%         f2_T = f2_T(:,1:3);
         constraintsSize = 3;
     elseif (strcmpi(constraints, 'right_corner'))
-        leftToRightTranslation_f2 = iDynTree.Position(0, model.foot.length, 0);
-        identity = iDynTree.Rotation.Identity();
-        tranlation_f2 = iDynTree.Transform(identity, leftToRightTranslation_f2);
-        tranlation_f2 = w_X_f2 * tranlation_f2;
-        w_J = tranlation_f2.asAdjointTransform().toMatlab();
-        w_T = w_J';% [eye(3); zeros(3)];
-        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
-        f2_T = f2_T(:,1:3);
+        f2_X_b = iDynTree.Transform(iDynTree.Rotation.Identity(), ...
+            iDynTree.Position(0, model.foot.length, 0));
+        f2_T =  f2_X_b.asAdjointTransformWrench().toMatlab  * [eye(3); zeros(3)];
+        
+%         w_X_b = w_X_f2 * f2_X_b;
+%         f2_T = w_X_b.inverse.asAdjointTransformWrench().toMatlab * [eye(3); zeros(3)];
+        f2_dT_times_v = zeros(3,1);
+        
+%         w_J = w_X_b.asAdjointTransform().toMatlab();
+%         w_T = w_J;
+%         f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+%         f2_T = f2_T';
+%         f2_T = f2_T(:,1:3);
         constraintsSize = 3;
     elseif (strcmpi(constraints, 'foot'))
-%         w_J = [];
         w_T = eye(6);
-        f2_T = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_T;
+        f2_T = w_X_f2.inverse().asAdjointTransformWrench().toMatlab() * w_T;
+        f2_dT_times_v = zeros(6, 1);
         constraintsSize = 6;
     end
-%     f2_J = w_X_f2.inverse().asAdjointTransform().toMatlab() * w_J;
-    
 end
 
 %compute acceleration of base frame (and foot)
@@ -112,7 +125,7 @@ end
 % f2_b = [- f2_b2.toMatlab() - f2_d; ];
 f2_A = [(f2_I1mat + f2_I2mat - f2_I1mat * f2_ApparentIInv * f2_I1mat), f2_T;
           f2_T', zeros(constraintsSize)];
-f2_b = [-f2_b2.toMatlab() - f2_d; zeros(constraintsSize, 1)];
+f2_b = [-f2_b2.toMatlab() - f2_d; -f2_dT_times_v];
 
 f2_sol = f2_A \ f2_b;
 f2_a2 = f2_sol(1:6);
@@ -139,13 +152,33 @@ f2_a2Acc = iDynTree.SpatialAcc();
 % following line is for a single rigid body
 % a2Acc.fromMatlab(-inv(I2mat) * b2.toMatlab());
 f2_a2Acc.fromMatlab(f2_a2);
-w_a2 = w_X_f2 * f2_a2Acc;
+%first: from f2 frame to frame with origin in f2 and orientation in inertial
+pf2_w_a2 = pf2_w_X_f2 * f2_a2Acc;
+%second: from spatial to classical acceleration
+pf2_w_a2mat = pf2_w_a2.toMatlab();
+w_v2Mat = w_v2.toMatlab();
+pf2_w_a2mat(1:3) = pf2_w_a2mat(1:3) + skew(w_v2Mat(4:6)) * w_v2Mat(1:3);
 
 % following line is for a single rigid body
 % a = [a2_inertial.toMatlab(); 0];
 
-w_a = [w_a2.toMatlab(); qddot];
-
-F = [f2_b1.toMatlab(); f2_b2.toMatlab()];
+w_a = [pf2_w_a2mat; qddot];
 
 end
+
+
+function vx = crossMotion(twistInMatlabForm)
+    twistInMatlabForm_lin = twistInMatlabForm(1:3);
+    twistInMatlabForm_angular = twistInMatlabForm(4:end);
+    vx = [skew(twistInMatlabForm_angular),  skew(twistInMatlabForm_lin);
+          zeros(3,3),                       skew(twistInMatlabForm_angular)];
+end
+
+function vx_star = crossStar(twistInMatlabForm)
+    twistInMatlabForm_lin = twistInMatlabForm(1:3);
+    twistInMatlabForm_angular = twistInMatlabForm(4:end);
+    
+    vx_star = [skew(twistInMatlabForm_angular), zeros(3,3);
+                skew(twistInMatlabForm_lin), skew(twistInMatlabForm_angular)];
+end
+

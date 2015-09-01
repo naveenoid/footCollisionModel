@@ -1,12 +1,13 @@
-function main()
+function [wholeSolution,model,environment] =  main(plane_incl)
 
     addpath(genpath('utilities'));
 
-    clear;
     clc;
-    close all;
 
     environment.plane_inclination = 10 / 180 * pi;
+    if exist('plane_incl','var')
+        environment.plane_inclination = plane_incl;
+    end
 
     %%Model: two links - One dof
     model = struct();
@@ -68,12 +69,10 @@ function main()
     phaseConstraints = {[],'corner','foot'};    
     phaseName = {'Free-flight','Single-point contact','Full-Foot contact'};
 
-    phaseResetStateIdx = {9:11,9:9+5,[]};
+    phaseResetOperator = {[], zeros(6), []};
+    % phaseResetStateIdx = {9:11,9:9+5,[]};
     impCtrlParams.damp = 0;%0.5;
     impCtrlParams.stiffness = 0;%10;
-    
-    plots = 'noPlots'; %noPlots or makePlots
-    animation = 'makeAnimation'; %noAnimation or makeAnimation
 
     impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
     for phase = 1:3
@@ -116,101 +115,30 @@ function main()
 
             %reset initial state
             x0 = odesol.y(:, end);
+            
+            operator = phaseResetOperator{phase};
             x0(phaseResetStateIdx{phase}) = 0; %set linear twist to zero
             tspan(1) = odesol.x(end);
 
             if (phase == 1 && odesol.ie == 1)
+                operator = [zeros(3), zeros(3); zeros(3), eye(3)];
                 phaseConstraints{2} = 'left_corner';
             else
+                w_R_f2 = iDynTree.Rotation();
+                w_R_f2.fromMatlab(rotationFromQuaternion(odesol.y(4:7,end)));
+        %         w_X_f2 = iDynTree.Transform(w_R_f2, iDynTree.Position(odesol.y(1,end), odesol.y(2,end),odesol.y(3,end)));
+                pf2_w_X_f2 = iDynTree.Transform(w_R_f2, iDynTree.Position());
+
+                f2_X_rc = iDynTree.Transform(iDynTree.Rotation.Identity(), iDynTree.Position(0, model.foot.length, 0));
+                w_X_rc = pf2_w_X_f2 * f2_X_rc;
+                operator = w_X_rc.asAdjointTransform().toMatlab() * operator * w_X_rc.inverse().asAdjointTransform().toMatlab();
                 phaseConstraints{2} = 'right_corner';
             end
-
+            
+            x0(9:14) = operator * x0(9:14);
             wholeSolution.event = [wholeSolution.event, odesol.x(end)];
         end
-
-    %         options = odeset(...%'OutputFcn', @odeplot,...
-    %                       'OutputSel',[8],'Refine',4,...
-    %                       'RelTol', 1e-5, ...
-    %                       'MaxStep',1e-2,...
-    %                       'Events', );
-    %         fprintf('\nPhase 2\n----------\n');
-    %         %second state: establishing full contact
-    %         odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-    %                         linspace(tspan(1),tspan(2),100), x0, options);
-    % 
-    %         wholeSolution.t = [wholeSolution.t, odesol.x];
-    %         wholeSolution.y = [wholeSolution.y, odesol.y];
-            %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
-
-    %         if (odesol.x(end) == tspan(end))
-    %             fprintf('SinglePoint Contact state - No collision detected before t=%f\n',odesol.x(end));
-    %         else
-    %             twistAtImpact = odesol.y(9:end-1, end);
-    %             fprintf('SinglePoint Contact - Collision detected at time t=%f for event %d\n',odesol.x(end), odesol.ie);
-    %             disp('Twist at impact is')
-    %             disp(twistAtImpact')
-
-    %             %reset initial state
-    %             x0 = odesol.y(:, end);
-    %             x0(9:9+5) = 0; %set linear twist to zero
-    %             tspan(1) = odesol.x(end);
-
-    %             constraint = 'foot';
-    % 
-    %             wholeSolution.event = [wholeSolution.event, odesol.x(end)];
-    % 
-    %             options = odeset(...%,'OutputFcn', @odeplot,..
-    %                           'OutputSel',[1:3],'Refine',4,...
-    %                           'MaxStep',1e-2,...
-    %                           'RelTol', 1e-5);
-    %                 fprintf('\nPhase 3\n----------\n');
-    %                 %third state: full contact
-    %                 odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, constraint, model), ...
-    %                                 linspace(tspan(1),tspan(2),100), x0, options);
-    % 
-    %                 wholeSolution.t = [wholeSolution.t, odesol.x];
-    %                 wholeSolution.y = [wholeSolution.y, odesol.y];
-                %animateLinkMotion(wholeSolution.t,wholeSolution.y',model, rotI,environment.plane_inclination,4,10);
-
-         %   end
-
-      %  end
     end
-    
-    
-    %legend('x','y','z');
-
-    if(strcmp(plots,'makePlots') == 1)
-        figure();
-        rot = zeros(length(wholeSolution.t), 3);
-        for i = 1: length(wholeSolution.t)
-            quat = wholeSolution.y(4:7, i);
-            [roll,pitch,yaw] = rpyFromRotation(rotationFromQuaternion(quat'));
-            rot(i, :) = [roll,pitch,yaw];
-        end
-        plot(wholeSolution.t, rot(:,1)');
-        hold on;
-        plot(wholeSolution.t, wholeSolution.y(1:3, :));
-        legend('rotx','x','y','z');
-        yl = ylim;
-        for i = 1:length(wholeSolution.event)
-            line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
-        end
-
-        figure();
-        plot(wholeSolution.t, wholeSolution.y(8, :));
-        legend('q');
-        yl = ylim;
-        for i = 1:length(wholeSolution.event)
-            line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
-        end
-    end
-    
-    %for i = 1:3
-    if(strcmp(animation,'makeAnimation')==1)
-        animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,4,10);
-    end
-
 end
 
 function u = impedanceCtrl(~, x, ref, params)
@@ -255,7 +183,7 @@ function [value,isterminal,direction] = collisionDetection(~,y, environment, mod
     direction = [-1, -1];    
 end
 
-function [value,isterminal,direction] = fullContactCondition(~,y, environment, model)
+function [value,isterminal,direction] = fullContactCondition(~,y, environment, ~)
     xpos = y(1:7); %base position
     xposRotation = rotationFromQuaternion(xpos(4:7));
     [xRotation, ~, ~] = rpyFromRotation(xposRotation);
@@ -263,5 +191,5 @@ function [value,isterminal,direction] = fullContactCondition(~,y, environment, m
     value = xRotation + environment.plane_inclination;
     
     isterminal = 1;
-    direction = -1;    
+    direction = 0;    
 end

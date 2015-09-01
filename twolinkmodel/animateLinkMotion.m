@@ -1,4 +1,4 @@
-function [ output_args ] = animateLinkMotion( t,y,model,phi,figNum,timeScale )
+function animateLinkMotion( t,y,model,phi,timeScale )
 %ANIMATELINKMOTION Animation of the motion of a single link (with a hard
 %constraint surface)
 %  Arguments
@@ -14,7 +14,7 @@ function [ output_args ] = animateLinkMotion( t,y,model,phi,figNum,timeScale )
     l1 = model.leg.length;
     m0 = model.upperbody.mass;
     
-    figure(figNum);
+    figure();
 
     %% extracting points
     theta = y(:,8);
@@ -70,16 +70,27 @@ function [ output_args ] = animateLinkMotion( t,y,model,phi,figNum,timeScale )
     P3 = w_b;
     P4 = w_a;
     
+    %% axis
+    axis([-2*w2 2*l2*cos(phi)+2*w2 -(l1+l2*sin(phi)) l1+l2]);
+    axis equal;
+    
     %% drawing the plane
-    T1 = [0 0];
-    T2 = 2*l2*[cos(phi) -sin(phi)];
-    T3 = 2*l2*[0,-sin(phi)];
-    line([T1(1),T2(1)],[T1(2),T2(2)],'Color','k','LineWidth',4.0); hold on;
-    line([T2(1),T3(1)],[T2(2),T3(2)],'Color','k','LineWidth',4.0); hold on;
-    line([T3(1),T1(1)],[T3(2),T1(2)],'Color','k','LineWidth',4.0); hold on;
+    xl = xlim;
+    left_line = [xl(1), xl(1) * sin(-phi)];
+    right_line = [xl(2), xl(2) * sin(-phi)];
+    line([left_line(1),right_line(1)],[left_line(2),right_line(2)],'Color','k','LineWidth',4.0); hold on;
+    
+%     T1 = [0 0];
+%     T2 = 2*l2*[cos(phi) -sin(phi)];
+%     T3 = 2*l2*[0,-sin(phi)];
+%     line([T1(1),T2(1)],[T1(2),T2(2)],'Color','k','LineWidth',4.0); hold on;
+%     line([T2(1),T3(1)],[T2(2),T3(2)],'Color','k','LineWidth',4.0); hold on;
+%     line([T3(1),T1(1)],[T3(2),T1(2)],'Color','k','LineWidth',4.0); hold on;
     % expected surface angle
     line([-2*w2 2*l2*cos(phi)+2*w2],[0 0],'Color','r','LineStyle','--');
 
+    h2 = text(1.5*l2,1.5*l2,sprintf('t = %2.2f sec',0));
+    
     %% plotting the initial position and the box corresponding to the foot link
     Px = [P1(1,2) P2(1,2) P3(1,2) P4(1,2) P1(1,2)];
     Py = [P1(1,3) P2(1,3) P3(1,3) P4(1,3) P1(1,3) ];
