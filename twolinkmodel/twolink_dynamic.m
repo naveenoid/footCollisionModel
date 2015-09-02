@@ -109,8 +109,8 @@ if (~isempty(constraints))
 %         f2_T = f2_T(:,1:3);
         constraintsSize = 3;
     elseif (strcmpi(constraints, 'foot'))
-        w_T = eye(6);
-        f2_T = w_X_f2.inverse().asAdjointTransformWrench().toMatlab() * w_T;
+        f2_T = eye(6);
+%         f2_T = w_X_f2.inverse().asAdjointTransformWrench().toMatlab() * w_T;
         f2_dT_times_v = zeros(6, 1);
         constraintsSize = 6;
     end
