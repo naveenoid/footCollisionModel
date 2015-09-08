@@ -2,6 +2,7 @@
 #define COMPLIANTANKLEMODULE_H
 
 #include <yarp/os/RFModule.h>
+#include <yarp/sig/Vector.h>
 
 namespace yarp {
     namespace os {
@@ -19,6 +20,7 @@ class CompliantAnkleModule : public yarp::os::RFModule
 {
     yarp::os::Port *m_rpcPort;
     wbi::wholeBodyInterface* m_robot;
+    yarp::sig::Vector m_homePosition;
 
     int m_impedanceJointIndex;
     double m_impedanceStiffness;
@@ -31,6 +33,9 @@ class CompliantAnkleModule : public yarp::os::RFModule
     bool stopDumping();
 
 public:
+    CompliantAnkleModule();
+    virtual ~CompliantAnkleModule();
+    
     virtual double getPeriod();
     virtual bool updateModule();
     virtual bool configure(yarp::os::ResourceFinder&);

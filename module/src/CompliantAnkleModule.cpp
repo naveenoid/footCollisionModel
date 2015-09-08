@@ -5,6 +5,15 @@
 #include <yarp/os/LogStream.h>
 #include <yarpWholeBodyInterface/yarpWholeBodyInterface.h>
 
+#define DEG_2_RAD (M_PI / 180.0)
+
+CompliantAnkleModule::CompliantAnkleModule()
+: m_rpcPort(0)
+, m_robot(0)
+, m_homePosition(0, 0.0) {}
+
+CompliantAnkleModule::~CompliantAnkleModule() { cleanup(); }
+
 double CompliantAnkleModule::getPeriod() { return 0.01; }
 
 bool CompliantAnkleModule::updateModule()
@@ -79,6 +88,22 @@ bool CompliantAnkleModule::configure(yarp::os::ResourceFinder &rf)
     m_impedanceDamping = rf.check("damp", "check damping")
     ? rf.find("damp").asDouble() : damping;
 
+
+    if (rf.check("home","Getting home positons"))
+    {
+        Bottle &grp = rf.findGroup("home");
+        int size = grp.size() - 1;
+
+        if (size != iCubMainJoints.size()) {
+            yError() << "Home position size has wrong dimension";
+            return false;
+        }
+
+        m_homePosition.resize(size, 0);
+        for (int i = 0; i < size; ++i)
+            m_homePosition[i] = DEG_2_RAD * grp.get(i + 1).asDouble();
+    }
+
     return true;
 }
 
@@ -133,6 +158,8 @@ bool CompliantAnkleModule::respond(const yarp::os::Bottle &command, yarp::os::Bo
 
 bool CompliantAnkleModule::reset()
 {
+    m_robot->setControlMode(wbi::CTRL_MODE_POS);
+    m_robot->setControlReference(m_homePosition.data());
     return true;
 }
 
@@ -141,7 +168,6 @@ bool CompliantAnkleModule::start()
     using namespace yarpWbi;
     yarpWholeBodyActuators *actuators = ((yarpWholeBodyInterface*)m_robot)->wholeBodyActuator();
 
-    //TODO: read default stiffness and damping value
     actuators->setControlProperty(YarpWholeBodyActuatorsPropertyInteractionModeKey, YarpWholeBodyActuatorsPropertyInteractionModeCompliant, m_impedanceJointIndex);
     actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, yarp::os::Value(m_impedanceStiffness).asString());
     actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceDampingKey, yarp::os::Value(m_impedanceDamping).asString());
