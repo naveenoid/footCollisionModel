@@ -13,7 +13,8 @@ int main(int argc, char **argv)
     }
     
     yarp::os::ResourceFinder finder;
-
+    
+    finder.setDefaultConfigFile("default.ini");
     finder.configure(argc, argv);
     
     CompliantAnkleModule module;

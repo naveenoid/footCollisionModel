@@ -14,7 +14,7 @@ CompliantAnkleModule::CompliantAnkleModule()
 
 CompliantAnkleModule::~CompliantAnkleModule() { cleanup(); }
 
-double CompliantAnkleModule::getPeriod() { return 0.01; }
+double CompliantAnkleModule::getPeriod() { return 0.5; }
 
 bool CompliantAnkleModule::updateModule()
 {
@@ -118,6 +118,10 @@ void CompliantAnkleModule::cleanup()
     if (m_rpcPort) {
         m_rpcPort->close();
         delete m_rpcPort; m_rpcPort = 0;
+    }
+    if (m_robot) {
+        m_robot->close();
+        delete m_robot; m_robot = 0;
     }
 }
 
