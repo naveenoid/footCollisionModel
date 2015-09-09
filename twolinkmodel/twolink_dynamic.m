@@ -150,6 +150,9 @@ end
 if (constraintsSize > 0)
     assert(any(abs(f2_T' * f2_v2Mat) < 1e-15),'Contraint equation: T^t v = 0');
     assert(any(abs(f2_T' * f2_a2) < 1e-15),'Acceleration contraint equation: T^t a = 0');
+    if (strcmpi(constraints, 'foot'))
+        norm(f2_T * (-f2_sol(8:end)) - (f2_b2.toMatlab() + f2_d));
+    end
 end
 
 %acceleration of the leg is not used in the integration. Yet it can be

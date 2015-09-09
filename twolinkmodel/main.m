@@ -71,10 +71,10 @@ function [wholeSolution,model,environment] =  main(plane_incl)
 
     phaseResetOperator = {[zeros(3), zeros(3); zeros(3), eye(3)], zeros(6), []};
     % phaseResetStateIdx = {9:11,9:9+5,[]};
-    impCtrlParams.damp = 0;%0.5;
-    impCtrlParams.stiffness = 0;%10;
+    impCtrlParams.damp = 25;
+    impCtrlParams.stiffness = 50;
 
-    impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
+    impedCtrl = @(t,x)impedanceCtrl(t,x, 0, impCtrlParams);
     
     wholeSolution.t = [];
     wholeSolution.y = [];
@@ -91,7 +91,7 @@ function [wholeSolution,model,environment] =  main(plane_incl)
       %                'Events',phaseEvent{phase} );
         options = odeset('RelTol', 1e-5,'Events',phaseEvent{phase} );
         %first state: free flying state              
-        odesol =  ode45(@(t,x)odefunc(t, x, impedCtrl, f_ext, phaseConstraints{phase}, model), ...
+        odesol =  ode15s(@(t,x)odefunc(t, x, impedCtrl, f_ext, phaseConstraints{phase}, model), ...
                         tspan, x0', options);
 
         wholeSolution.t = [wholeSolution.t, odesol.x];
