@@ -55,10 +55,12 @@ bool CompliantAnkleModule::configure(yarp::os::ResourceFinder &rf)
         return false;
     }
 
-    std::string jointName = rf.check("imp_joint", Value("l_ankle_hip"), "Check impedance joint name").asString();
+    std::cout << iCubMainJoints.toString() << "\n";
+
+    std::string jointName = rf.check("imp_joint", Value("r_ankle_pitch"), "Check impedance joint name").asString();
 
     if (!iCubMainJoints.idToIndex(jointName, m_impedanceJointIndex)) {
-        yError() << "Could not find specified joint.";
+        yError() << "Could not find " << jointName << " joint.";
         return false;
     }
 
@@ -77,9 +79,9 @@ bool CompliantAnkleModule::configure(yarp::os::ResourceFinder &rf)
 
     std::string tempString;
     yarpWbi::yarpWholeBodyActuators *actuators = ((yarpWbi::yarpWholeBodyInterface*)m_robot)->wholeBodyActuator();
-    actuators->getControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, tempString);
+    actuators->getControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, tempString, m_impedanceJointIndex);
     double stiffness = Value(tempString).asDouble();
-    actuators->getControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyImpedanceDampingKey, tempString);
+    actuators->getControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyImpedanceDampingKey, tempString, m_impedanceJointIndex);
     double damping = Value(tempString).asDouble();
 
     m_impedanceStiffness = rf.check("stiff", "check stiffness")
@@ -89,19 +91,23 @@ bool CompliantAnkleModule::configure(yarp::os::ResourceFinder &rf)
     ? rf.find("damp").asDouble() : damping;
 
 
+    m_homePosition.resize(iCubMainJoints.size(), 0);
+    //By default read initial position
+    m_robot->getEstimates(wbi::ESTIMATE_JOINT_POS, m_homePosition.data());
     if (rf.check("home","Getting home positons"))
     {
-        Bottle &grp = rf.findGroup("home");
-        int size = grp.size() - 1;
+        Bottle &home = rf.findGroup("home");
+        Bottle *grp = home.get(1).asList();
+
+        int size = grp->size();
 
         if (size != iCubMainJoints.size()) {
             yError() << "Home position size has wrong dimension";
             return false;
         }
 
-        m_homePosition.resize(size, 0);
         for (int i = 0; i < size; ++i)
-            m_homePosition[i] = DEG_2_RAD * grp.get(i + 1).asDouble();
+            m_homePosition[i] = DEG_2_RAD * grp->get(i + 1).asDouble();
     }
 
     return true;
@@ -163,6 +169,10 @@ bool CompliantAnkleModule::respond(const yarp::os::Bottle &command, yarp::os::Bo
 bool CompliantAnkleModule::reset()
 {
     m_robot->setControlMode(wbi::CTRL_MODE_POS);
+    yarpWbi::yarpWholeBodyActuators *actuators = ((yarpWbi::yarpWholeBodyInterface*)m_robot)->wholeBodyActuator();
+
+    actuators->setControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyInteractionModeKey, yarpWbi::YarpWholeBodyActuatorsPropertyInteractionModeStiff, m_impedanceJointIndex);
+
     m_robot->setControlReference(m_homePosition.data());
     return true;
 }
@@ -173,8 +183,8 @@ bool CompliantAnkleModule::start()
     yarpWholeBodyActuators *actuators = ((yarpWholeBodyInterface*)m_robot)->wholeBodyActuator();
 
     actuators->setControlProperty(YarpWholeBodyActuatorsPropertyInteractionModeKey, YarpWholeBodyActuatorsPropertyInteractionModeCompliant, m_impedanceJointIndex);
-    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, yarp::os::Value(m_impedanceStiffness).asString());
-    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceDampingKey, yarp::os::Value(m_impedanceDamping).asString());
+    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, yarp::os::Value(m_impedanceStiffness).asString(), m_impedanceJointIndex);
+    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceDampingKey, yarp::os::Value(m_impedanceDamping).asString(), m_impedanceJointIndex);
     return true;
 }
 

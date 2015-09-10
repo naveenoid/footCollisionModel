@@ -16,6 +16,9 @@ int main(int argc, char **argv)
     
     finder.setDefaultConfigFile("default.ini");
     finder.configure(argc, argv);
+    yarp::os::Value falseValue;
+    falseValue.fromString("false");
+    finder.setVerbose(finder.check("verbose", falseValue, "Checking verbose").asBool());
     
     CompliantAnkleModule module;
     module.setName("/ankleExp");
