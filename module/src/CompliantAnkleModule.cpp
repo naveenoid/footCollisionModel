@@ -84,6 +84,8 @@ bool CompliantAnkleModule::configure(yarp::os::ResourceFinder &rf)
     actuators->getControlProperty(yarpWbi::YarpWholeBodyActuatorsPropertyImpedanceDampingKey, tempString, m_impedanceJointIndex);
     double damping = Value(tempString).asDouble();
 
+    yInfo() << "Initial stiffness and damping = " << stiffness << " " << damping;
+
     m_impedanceStiffness = rf.check("stiff", "check stiffness")
     ? rf.find("stiff").asDouble() : stiffness;
 
@@ -133,7 +135,6 @@ void CompliantAnkleModule::cleanup()
 
 bool CompliantAnkleModule::respond(const yarp::os::Bottle &command, yarp::os::Bottle &reply)
 {
-    std::cout << command.size() << "\n" << command.toString();
     if (command.size() > 0) {
         //just get the first command
         yarp::os::ConstString cmd = command.get(0).asString();
@@ -161,6 +162,26 @@ bool CompliantAnkleModule::respond(const yarp::os::Bottle &command, yarp::os::Bo
                 reply.addInt(-1);
                 return false;
             }
+        } else if (cmd == "set") {
+            if (command.size() > 2) {
+                yarp::os::ConstString type = command.get(1).asString();
+                if (command.get(2).isDouble()) {
+                    double value = command.get(2).asDouble();
+                    if (type == "stiff") {
+                        m_impedanceStiffness = value;
+                        yInfo() << "New stiffness set to " << m_impedanceStiffness;
+                        reply.addInt(0);
+                        return true;
+                    } else if (type == "damp") {
+                        m_impedanceDamping = value;
+                        yInfo() << "New damping set to " << m_impedanceDamping;
+                        reply.addInt(0);
+                        return true;
+                    }
+                }
+                reply.addInt(-1);
+                return false;
+            }
         }
     }
     return RFModule::respond(command, reply);
@@ -182,10 +203,14 @@ bool CompliantAnkleModule::start()
     using namespace yarpWbi;
     yarpWholeBodyActuators *actuators = ((yarpWholeBodyInterface*)m_robot)->wholeBodyActuator();
 
-    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyInteractionModeKey, YarpWholeBodyActuatorsPropertyInteractionModeCompliant, m_impedanceJointIndex);
-    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, yarp::os::Value(m_impedanceStiffness).asString(), m_impedanceJointIndex);
-    actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceDampingKey, yarp::os::Value(m_impedanceDamping).asString(), m_impedanceJointIndex);
-    return true;
+    yInfo() << "Setting impedance to " << m_impedanceStiffness << " " << m_impedanceDamping;
+    bool result;
+    result = actuators->setControlProperty(YarpWholeBodyActuatorsPropertyInteractionModeKey, YarpWholeBodyActuatorsPropertyInteractionModeCompliant, m_impedanceJointIndex);
+    result = result && actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceStiffnessKey, yarp::os::Value(m_impedanceStiffness).toString(), m_impedanceJointIndex);
+    result = result && actuators->setControlProperty(YarpWholeBodyActuatorsPropertyImpedanceDampingKey, yarp::os::Value(m_impedanceDamping).toString(), m_impedanceJointIndex);
+
+
+    return result;
 }
 
 bool CompliantAnkleModule::stopDumping()

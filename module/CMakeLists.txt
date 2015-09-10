@@ -15,4 +15,5 @@ set(SRCS src/main.cpp
 add_executable(${PROJECT_NAME} ${HEADERS} ${SRCS})
 target_link_libraries(${PROJECT_NAME} ${yarpWholeBodyInterface_LIBRARIES} ${YARP_LIBRARIES})
 
+add_subdirectory(app)
 
