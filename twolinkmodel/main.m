@@ -61,7 +61,10 @@ function [wholeSolution,model,environment] =  main(plane_incl)
     f_ext = iDynTree.Wrench();
     f_ext.zero();
 
-    tspan = [0, 1.75];
+    tspan = [0, 2];
+    
+    global forces;
+    forces = [];
 
     phaseEvent = {@(t,y)collisionDetection(t,y,environment, model),...
         @(t,y)fullContactCondition(t,y,environment,model),...
@@ -71,14 +74,15 @@ function [wholeSolution,model,environment] =  main(plane_incl)
 
     phaseResetOperator = {[zeros(3), zeros(3); zeros(3), eye(3)], zeros(6), []};
     % phaseResetStateIdx = {9:11,9:9+5,[]};
-    impCtrlParams.damp = 25;
-    impCtrlParams.stiffness = 50;
+    impCtrlParams.damp = 3;
+    impCtrlParams.stiffness = 20;
 
     impedCtrl = @(t,x)impedanceCtrl(t,x, 0, impCtrlParams);
     
     wholeSolution.t = [];
     wholeSolution.y = [];
     wholeSolution.event = [];
+    wholeSolution.contactForces = [];
     for phase = 1:3
 
         fprintf('\nPhase %d\n----------\n',phase);
@@ -90,7 +94,7 @@ function [wholeSolution,model,environment] =  main(plane_incl)
                      % 'MaxStep',1e-2,...
       %                'Events',phaseEvent{phase} );
         options = odeset('RelTol', 1e-5,'Events',phaseEvent{phase} );
-        %first state: free flying state              
+        %first state: free flying state   
         odesol =  ode15s(@(t,x)odefunc(t, x, impedCtrl, f_ext, phaseConstraints{phase}, model), ...
                         tspan, x0', options);
 
@@ -105,7 +109,7 @@ function [wholeSolution,model,environment] =  main(plane_incl)
                 fprintf('%s Phase - terminal time t = %f\n',phaseName{phase},odesol.x(end));
             end
         else
-            twistAtImpact = odesol.y(9:end-1, end);
+            twistAtImpact = odesol.y(9:9 + 5, 9+6);
             fprintf('%s Phase - Collision detected at time t=%f for event %d\n',phaseName{phase},odesol.x(end), odesol.ie);
             disp('Twist at impact is')
             disp(twistAtImpact')
@@ -122,10 +126,10 @@ function [wholeSolution,model,environment] =  main(plane_incl)
 %             x0(phaseResetStateIdx{phase}) = 0; %set linear twist to zero
             tspan(1) = odesol.x(end);
 
-            if (phase == 1 && odesol.ie == 1)
+            if (phase == 1 && size(odesol.ie, 1) == 1 && odesol.ie == 1)
                 operator = [zeros(3), zeros(3); zeros(3), eye(3)];
                 phaseConstraints{2} = 'left_corner';
-            else
+            elseif (phase == 1 && size(odesol.ie, 1) == 1 && odesol.ie == 2)
                 w_R_f2 = iDynTree.Rotation();
                 w_R_f2.fromMatlab(rotationFromQuaternion(odesol.y(4:7,end)));
         %         w_X_f2 = iDynTree.Transform(w_R_f2, iDynTree.Position(odesol.y(1,end), odesol.y(2,end),odesol.y(3,end)));
@@ -135,12 +139,18 @@ function [wholeSolution,model,environment] =  main(plane_incl)
                 w_X_rc = pf2_w_X_f2 * f2_X_rc;
                 operator = w_X_rc.asAdjointTransform().toMatlab() * operator * w_X_rc.inverse().asAdjointTransform().toMatlab();
                 phaseConstraints{2} = 'right_corner';
+            elseif (phase == 1 && size(odesol.ie, 1) == 2)
+                %flat contact
+                 %??
             end
             
             x0(9:14) = operator * x0(9:14);
             wholeSolution.event = [wholeSolution.event, odesol.x(end)];
         end
     end
+    
+    wholeSolution.contactForces = forces;
+    
 end
 
 function u = impedanceCtrl(~, x, ref, params)
@@ -151,7 +161,8 @@ function u = impedanceCtrl(~, x, ref, params)
         - params.damp * qdot;
 end
 
-function dx = odefunc(t,x, controlfunc, f_ext, constaints, model)    
+function dx = odefunc(t,x, controlfunc, f_ext, constaints, model)
+    global forces;
     xpos = x(1:7); %base position
 %      q = x(8); %joint position
     xdot = x(9:9+5); %base velocity
@@ -160,6 +171,9 @@ function dx = odefunc(t,x, controlfunc, f_ext, constaints, model)
     
     u = controlfunc(t, x);
     [a, f_c] = twolink_dynamic(t, x, u, f_ext, constaints, model);
+    if (~isempty(f_c))
+        forces = [forces, [t; f_c]];
+    end
     
     dx = [xdot(1:3);
           quatDot;

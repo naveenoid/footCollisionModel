@@ -56,7 +56,7 @@ for i = 1:length(wholeSolution.event)
 end
 
 figure();
-plot(wholeSolution.t, wholeSolution.y(8, :));
+plot(wholeSolution.t, wholeSolution.y(8, :) .* (180/pi));
 legend('q');
 yl = ylim;
 for i = 1:length(wholeSolution.event)
@@ -67,6 +67,15 @@ figure();
 plot(wholeSolution.t, rcPosition);
 title('Position of right corner');
 legend('x','y','z');
+yl = ylim;
+for i = 1:length(wholeSolution.event)
+    line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
+end
+
+
+figure();
+plot(wholeSolution.contactForces(1,:), wholeSolution.contactForces(1+4,:) ./ wholeSolution.contactForces(1+3,:));
+title('Center of pressure (y)');
 yl = ylim;
 for i = 1:length(wholeSolution.event)
     line([wholeSolution.event(i), wholeSolution.event(i)], yl, 'LineStyle', ':', 'Color', 'k'); 
