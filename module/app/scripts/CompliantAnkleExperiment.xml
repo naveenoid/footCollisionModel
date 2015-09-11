@@ -7,56 +7,56 @@
   <module>
     <name>wholeBodyDynamicsTree</name>
     <parameters>--autoconnect --name wholeBodyDynamicsTree --robot icub</parameters>
-    <node>icub14</node>
+    <node></node>
     <tag>wholeBodyDynamicsTree</tag>
  </module>
  
   <module>
     <name>iCubGui</name>
     <parameters>--xpos 1500 --ypos 50 --width 370</parameters> 
-    <node>icub14</node>
+    <node></node>
     <tag>iCubGui</tag>
   </module>
 
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name left_wrench --connect /wholeBodyDynamicsTree/left_leg/endEffectorWrench:o</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
 
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name right_wrench --connect /wholeBodyDynamicsTree/right_leg/endEffectorWrench:o</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
 
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name imu --connect /icub/inertial</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
   
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name left_leg_state --connect /icub/left_leg/stateExt:o</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
   
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name right_leg_state --connect /icub/right_leg/stateExt:o</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
   
   <module>
     <name>yarpdatadumper</name>
     <parameters>--name torso_state --connect /icub/torso/stateExt:o</parameters> 
-    <node>localhost</node>
+    <node></node>
     <tag></tag>
   </module>
   <!-- <module>
