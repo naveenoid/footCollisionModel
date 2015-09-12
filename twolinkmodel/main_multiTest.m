@@ -1,23 +1,23 @@
-function [J,kRange,bRange] =  main_multiTest()
+function [ranges,resultStore] =  main_multiTest()
     clear;
     close all;
 
      wholeSolution_multiStore = struct();
-     model_multiStore = struct();
-     environment_multiStore = struct();
+     %model_multiStore = struct();
+     %environment_multiStore = struct();
 
-     plane_inclinationRange = linspace(0,10,2)./(pi/180);
+     plane_inclinationRange = linspace(0.01,10,3).*(pi/180);
 
+     stiffnessRange =linspace(1,50,3);
+     dampRange = stiffnessRange(1)./10;
 
+     ranges.plane_inclinationRange = plane_inclinationRange;
+     ranges.dampRange = dampRange;
+     ranges.stiffnessRange = stiffnessRange;
+     
      addpath(genpath('utilities'));
 
     clc;
-
-    environment.plane_inclination = 10 / 180 * pi;
-    if exist('plane_incl','var')
-        environment.plane_inclination = plane_incl;
-    end
-
     %%Model: two links - One dof
     model = struct();
     %note: numbers are random for now :D
@@ -51,22 +51,32 @@ function [J,kRange,bRange] =  main_multiTest()
     model.leg.I = legI + upperBodyI;
  
  
-    for inclinationCnt =  plane_inclinationRange
-        for stiffCnt = stiffnessRange
-            for dampCnt = dampRange
+    for inclCtr =  1:length(plane_inclinationRange)
+        for stifCtr = 1:length(stiffnessRange)
+            for dampCtr =1:length(dampRange)
                 
-                fprintf('\n------------Next run, phi: %f, stiff: %f, damp :%f\n----------------\n');
+                inclination = plane_inclinationRange(inclCtr);
+                stiffness = stiffnessRange(stifCtr);
+                damping = dampRange(dampCtr);
+                fprintf('\n----Next run, phi: %2.2f, stiff: %2.2f, damp :%2.2f----\n',inclination, stiffness, damping);
                 
-                [multiTestResult,modelResult,environmentResult] = multiTest(plane_inclinationRange(inclinationCnt),stiffnessRange(stiffnessCnt),dampingRange(dampCnt),model,rotI);
+                [multiTestResult(inclCtr,stifCtr,dampCtr),CoPResult(inclCtr,stifCtr,dampCtr),timeToCoPResult(inclCtr,stifCtr,dampCtr)] = multiTest(inclination,stiffness,damping,model,rotI);
             end
         end
     end
- 
+    resultStore.multiTestResult = multiTestResult;
+    resultStore.CoPResult = CoPResult;
+    resultStore.timeToCoPResult = timeToCoPResult;
 end
 
-function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,damping,model,rotI)
+function [wholeSolution,CoPTerminal,timeToCoP] =  multiTest(plane_incl,stiffness,damping,model,rotI)
 
 
+
+    environment.plane_inclination = 10 / 180 * pi;
+    if exist('plane_incl','var')
+        environment.plane_inclination = plane_incl;
+    end
 
     %%Initial state
     q = 0;%pi/2;
@@ -88,7 +98,7 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
     f_ext = iDynTree.Wrench();
     f_ext.zero();
 
-    tspan = [0, 1.75];
+    tspan = [0, 2.0];
 
     phaseEvent = {@(t,y)collisionDetection(t,y,environment, model),...
         @(t,y)fullContactCondition(t,y,environment,model),...
@@ -101,9 +111,9 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
     impCtrlParams.damp = damping;%0.5;
     impCtrlParams.stiffness = stiffness;%10;
 
-    impedCtrl = @(t,x)impedanceCtrl(t,x, pi/2, impCtrlParams);
-    plots = 'noPlots'; %noPlots or makePlots
-    animation = 'makeAnimation'; %noAnimation or makeAnimation
+    impedCtrl = @(t,x)impedanceCtrl(t,x, 0, impCtrlParams);
+%    plots = 'noPlots'; %noPlots or makePlots
+%    animation = 'makeAnimation'; %noAnimation or makeAnimation
 %     phase1Result = 'loadFromStored';% loadFromStored runSimulation
 %     phase1StoreFolder = './data';
 %     phase1StoreFile = phase1StoreFolder+'/phase1Result.mat';
@@ -137,13 +147,13 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
         if (odesol.x(end) == tspan(end))
 
             if(phase<3)
-                fprintf('%s Phase - No collision detected before t=%f\n',phaseName{phase},odesol.x(end));
+                fprintf('%s Phase - No collision detected before t=%2.2f\n',phaseName{phase},odesol.x(end));
             else
                 fprintf('%s Phase - terminal time t = %f\n',phaseName{phase},odesol.x(end));
             end
         else
             twistAtImpact = odesol.y(9:end-1, end);
-            fprintf('%s Phase - Collision detected at time t=%f for event %d\n',phaseName{phase},odesol.x(end), odesol.ie);
+            fprintf('%s Phase - Collision detected at time t=%2.2f for event %d\n',phaseName{phase},odesol.x(end), odesol.ie);
            % disp('Twist at impact is')
           %  disp(twistAtImpact')
             %I should start again to integrate but
@@ -179,8 +189,11 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
 %             
 %             if(phase == 1)
 %                 if(exist(phase1StoreFolder,'dir') == 0)
-%                 save(phase1Store,'wholeSolution','x0');
+%                 save(phase1Store,'whioleSolution','x0');
 %             end
+       % else
+       %     wholeSolution.event = [wholeSolution.event,tspan(2)];
+       % end
         end
     end
     
@@ -188,7 +201,7 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
 %         figIdx = figure();
 %   %       animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,10);
 %      end
-
+    
     figure(1);
     disp(wholeSolution.event);
     plot(wholeSolution.t,wholeSolution.y(8,:)); axis tight;
@@ -198,9 +211,14 @@ function [wholeSolution,model,environment] =  multiTest(plane_incl,stiffness,dam
     hold on;
     a = axis();
     line([wholeSolution.event(1);wholeSolution.event(1)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
-    line([wholeSolution.event(2);wholeSolution.event(2)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
+    if(length(wholeSolution.event)>1)
+        line([wholeSolution.event(2);wholeSolution.event(2)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
+    end
     
      disp('done');
+     drawnow();
+     [CoPTerminal,timeToCoP] = copAtBoundary(wholeSolution,f_ext,model,impedCtrl,tspan);
+     fprintf('CopTerminal = %2.2f, timeToCoP = %2.2f\n',CoPTerminal,timeToCoP);
 end
 
 function u = impedanceCtrl(~, x, ref, params)
@@ -211,7 +229,7 @@ function u = impedanceCtrl(~, x, ref, params)
         - params.damp * qdot;
 end
 
-function dx = odefunc(t,x, controlfunc, f_ext, constaints, model)    
+function [dx,f_c] = odefunc(t,x, controlfunc, f_ext, constaints, model)    
     xpos = x(1:7); %base position
 %      q = x(8); %joint position
     xdot = x(9:9+5); %base velocity
@@ -254,4 +272,23 @@ function [value,isterminal,direction] = fullContactCondition(~,y, environment, ~
     
     isterminal = 1;
     direction = 0;    
+end
+
+function [cop,timeTaken] = copAtBoundary(wholeSolution,f_ext,model,impCtrl,tspan)
+    if(length(wholeSolution.event)  == 2)
+        %fcTerminal = 
+       [idx] = find(wholeSolution.t==wholeSolution.event(2));
+       tT = wholeSolution.event(2);
+       xT = wholeSolution.y(:,idx);
+       %[xDotT,f_actT] = odefunc(tT, xT', impCtrl(tT,xT), f_ext, 'foot', model)
+  %,u, f_ext, constaints, model);
+
+    [a, f_actT] = twolink_dynamic(tT, xT', impCtrl(tT,xT), f_ext, 'foot', model);
+       e4 = [0 0 0 1 0 0];
+       e3 = [0 0 1  0 0 0];
+       cop = e4*f_actT ./ (e3*f_actT);
+       timeTaken = tT;
+    else
+        cop = 0;timeTaken = tspan(2);
+    end
 end
