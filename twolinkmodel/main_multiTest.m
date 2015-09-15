@@ -6,11 +6,11 @@ function [ranges,resultStore] =  main_multiTest()
      %model_multiStore = struct();
      %environment_multiStore = struct();
 
-     plane_inclinationRange = linspace(-10,10,9).*(pi/180);
+     plane_inclinationRange = linspace(-10,10,7).*(pi/180);
 
-     stiffnessRange =linspace(1,100,6);
+     stiffnessRange =linspace(1,100,9);
      %dampRange = stiffnessRange./10;
-     dampRange = linspace(0,10,3);%stiffnessRange(1)./100;
+     dampRange = linspace(0.1,10,6);%stiffnessRange(1)./100;
      
      ranges.plane_inclinationRange = plane_inclinationRange;
      ranges.dampRange = dampRange;
@@ -71,7 +71,7 @@ function [ranges,resultStore] =  main_multiTest()
     resultStore.multiTestResult = multiTestResult;
     resultStore.CoPResult = CoPResult;
     resultStore.timeToCoPResult = timeToCoPResult;
-    save('./data/multiTestResult','resultStore','ranges');
+    save('./data/multiTestResult','resultStore','ranges','model');
     
     Jtotal = (CoPResult - model.foot.length/2*ones(size(CoPResult))).^2;
     if(length(dampRange) == 1)
@@ -81,8 +81,9 @@ function [ranges,resultStore] =  main_multiTest()
     else
         %figure;        
         for i = 1:length(dampRange)
+            
             figure;
-            contourf(ranges.stiffnessRange,ranges.plane_inclinationRange,Jtotal );  
+            contourf(ranges.stiffnessRange,ranges.plane_inclinationRange,Jtotal(:,:,i) );  
             xlabel('K'); ylabel('\phi'); zlabel('J');   
             title(sprintf('Damping = %2.2f',dampRange(i)));
         end
