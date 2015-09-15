@@ -17,18 +17,20 @@ if(length(ranges.dampRange) == 1)
     xlabel('K'); ylabel('\phi'); zlabel('J');   
 else
     %figure;       
-    for i = 1:length(ranges.dampRange)
+    for i = 1:length(ranges.plane_inclinationRange)
 
         figure;
-        contourf(ranges.stiffnessRange,ranges.plane_inclinationRange,Jtotal(:,:,i) );  
-        xlabel('K'); ylabel('\phi'); zlabel('J');   
-        title(sprintf('Damping = %2.2f',ranges.dampRange(i)));
-
-
+        contourf(ranges.stiffnessRange,ranges.dampRange,squeeze(Jtotal(i,:,:)) );  
+        xlabel('K'); ylabel('b'); zlabel('J');   
+        title(sprintf('Orientation = %2.2f',ranges.plane_inclinationRange(i)));
+%optimalVals.stiffnessMean = stiffnessMean;
+%    optimalVals.dampingMean = dampingMean;
+    hold on;
+        plot(optimalVals.stiffnessMean(i),optimalVals.dampingMean(i),'ko','LineWidth',2);
         set(gca,'FontSize',16);
         set(gcf,'Renderer','OpenGL');
         print('-dpng','-r400',strcat(plotFigBaseName,...
-        sprintf('%d',round(10*ranges.dampRange(i)))),'-opengl');
+        sprintf('%d',round(10*ranges.plane_inclinationRange(i)))),'-opengl');
 
     end
 end
