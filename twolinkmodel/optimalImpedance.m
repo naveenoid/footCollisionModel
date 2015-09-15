@@ -38,6 +38,21 @@ function [betaStar] = optimalImpedance(phi,q,qDot,model)
     alphaP = alpha4 - Pd*alpha3;
     betaStar = - ((X*Ibar'*(e4 - Pd*e3)) * alphaP) / (norm(X*Ibar'*(e4 - Pd*e3)).^2);
 
+    
+    if(any(betaStar<0))
+     h = X*Ibar'*(e4 - Pd*e3) ;
+    
+         fprintf('Negative impedance solution! Optimising on null space\n');
+       % fprintf('old : \n');
+        %disp(betaStar);
+        
+     betaStar = lsqnonneg(h', -alphaP);
+    
+        %fprintf('new : \n');
+        %disp(betaStar);
+    end
+    
+    
     %% verification
     cost = e4'*(Ibar*X'*betaStar + alpha_of_q) - Pd*e3'*(Ibar*X'*betaStar + alpha_of_q);
     fprintf('Cost Function : %2.2f\n',cost);
