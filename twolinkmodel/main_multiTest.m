@@ -6,11 +6,12 @@ function [ranges,resultStore] =  main_multiTest()
      %model_multiStore = struct();
      %environment_multiStore = struct();
 
-     plane_inclinationRange = linspace(0.01,10,3).*(pi/180);
+     plane_inclinationRange = linspace(-10,10,9).*(pi/180);
 
-     stiffnessRange =linspace(1,50,3);
-     dampRange = stiffnessRange(1)./10;
-
+     stiffnessRange =linspace(1,100,6);
+     %dampRange = stiffnessRange./10;
+     dampRange = linspace(0,10,3);%stiffnessRange(1)./100;
+     
      ranges.plane_inclinationRange = plane_inclinationRange;
      ranges.dampRange = dampRange;
      ranges.stiffnessRange = stiffnessRange;
@@ -56,6 +57,9 @@ function [ranges,resultStore] =  main_multiTest()
             for dampCtr =1:length(dampRange)
                 
                 inclination = plane_inclinationRange(inclCtr);
+                if(inclination == 0)
+                    inclination = inclination+0.01;
+                end
                 stiffness = stiffnessRange(stifCtr);
                 damping = dampRange(dampCtr);
                 fprintf('\n----Next run, phi: %2.2f, stiff: %2.2f, damp :%2.2f----\n',inclination, stiffness, damping);
@@ -67,6 +71,22 @@ function [ranges,resultStore] =  main_multiTest()
     resultStore.multiTestResult = multiTestResult;
     resultStore.CoPResult = CoPResult;
     resultStore.timeToCoPResult = timeToCoPResult;
+    save('./data/multiTestResult','resultStore','ranges');
+    
+    Jtotal = (CoPResult - model.foot.length/2*ones(size(CoPResult))).^2;
+    if(length(dampRange) == 1)
+        figure;
+        surf(ranges.stiffnessRange,ranges.plane_inclinationRange,Jtotal );  
+        xlabel('K'); ylabel('\phi'); zlabel('J');   
+    else
+        %figure;        
+        for i = 1:length(dampRange)
+            figure;
+            contourf(ranges.stiffnessRange,ranges.plane_inclinationRange,Jtotal );  
+            xlabel('K'); ylabel('\phi'); zlabel('J');   
+            title(sprintf('Damping = %2.2f',dampRange(i)));
+        end
+    end
 end
 
 function [wholeSolution,CoPTerminal,timeToCoP] =  multiTest(plane_incl,stiffness,damping,model,rotI)
@@ -111,8 +131,9 @@ function [wholeSolution,CoPTerminal,timeToCoP] =  multiTest(plane_incl,stiffness
     impCtrlParams.damp = damping;%0.5;
     impCtrlParams.stiffness = stiffness;%10;
 
+    
     impedCtrl = @(t,x)impedanceCtrl(t,x, 0, impCtrlParams);
-%    plots = 'noPlots'; %noPlots or makePlots
+    plots = 'noPlots'; %noPlots or makePlots
 %    animation = 'makeAnimation'; %noAnimation or makeAnimation
 %     phase1Result = 'loadFromStored';% loadFromStored runSimulation
 %     phase1StoreFolder = './data';
@@ -202,20 +223,21 @@ function [wholeSolution,CoPTerminal,timeToCoP] =  multiTest(plane_incl,stiffness
 %   %       animateLinkMotion(wholeSolution.t,wholeSolution.y',model,environment.plane_inclination,10);
 %      end
     
-    figure(1);
-    disp(wholeSolution.event);
-    plot(wholeSolution.t,wholeSolution.y(8,:)); axis tight;
-    xlabel('time (sec)');
-    ylabel('q (rads)');
-    
-    hold on;
-    a = axis();
-    line([wholeSolution.event(1);wholeSolution.event(1)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
-    if(length(wholeSolution.event)>1)
-        line([wholeSolution.event(2);wholeSolution.event(2)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
+    if(strcmp(plots,'noPlots') ~= 1)
+        figure(1);
+        disp(wholeSolution.edonevent);
+        plot(wholeSolution.t,wholeSolution.y(8,:)); axis tight;
+        xlabel('time (sec)');
+        ylabel('q (rads)');
+
+        hold on;
+        a = axis();
+        line([wholeSolution.event(1);wholeSolution.event(1)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
+        if(length(wholeSolution.event)>1)
+            line([wholeSolution.event(2);wholeSolution.event(2)],[a(3);a(4)],'LineStyle','--','Color',[1 0 0]);
+        end
     end
-    
-     disp('done');
+     disp('------');
      drawnow();
      [CoPTerminal,timeToCoP] = copAtBoundary(wholeSolution,f_ext,model,impedCtrl,tspan);
      fprintf('CopTerminal = %2.2f, timeToCoP = %2.2f\n',CoPTerminal,timeToCoP);
