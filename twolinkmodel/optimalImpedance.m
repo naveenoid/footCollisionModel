@@ -28,8 +28,6 @@ function [betaStar] = optimalImpedance(phi,q,qDot,model)
     ag = [rotx(phi*(180/pi))*[0;0;-9.8];[0;0;0]];
     Ibar = I1*S/(S'*I1*S)*S';
     
-    
-    
     alpha_of_q = (crossStar((eye(size(Ibar))...
         - Ibar)*S)*I1 * S * (qDot).^2) -...
         (I2 + I1 *f1_X_f2 - Ibar *I1* f1_X_f2)*ag;
@@ -38,10 +36,10 @@ function [betaStar] = optimalImpedance(phi,q,qDot,model)
     alpha3 = alpha_of_q(3);
 
     alphaP = alpha4 - Pd*alpha3;
-    betaStar = - ((X*Ibar*(e4 - Pd*e3)) * alphaP) / (norm(X*Ibar*(e4 - Pd*e3)).^2);
-I
+    betaStar = - ((X*Ibar'*(e4 - Pd*e3)) * alphaP) / (norm(X*Ibar'*(e4 - Pd*e3)).^2);
+
     %% verification
-    e4'*(Ibar*X'*betaStar + alpha_of_q) - Pd*e3'*(Ibar*X'*betaStar + alpha_of_q)
-    disp(e4);
+    cost = e4'*(Ibar*X'*betaStar + alpha_of_q) - Pd*e3'*(Ibar*X'*betaStar + alpha_of_q);
+    fprintf('Cost Function : %2.2f\n',cost);
     
 end
