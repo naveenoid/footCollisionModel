@@ -40,7 +40,16 @@ z = -[Ihat(3,4) * t(1); Ihat(3,4) * t(2)];
 beta = - (1/((norm(y - pstar * z)^2)))*...
     (y - pstar * z)  * (alpha(4) - pstar* alpha(3));
 
-nobeta = - z / norm(z)^2 * alpha(3)
+betaCoeff = (y' - pstar * z');
+(y' - pstar * z') * beta + (alpha(4) - pstar*alpha(3));
+
+N = [1; -betaCoeff(1)/betaCoeff(2)];
+N = N/norm(N);
+betaCoeff * N;
+beta = beta + N * rand(1);
+(y' - pstar * z') * beta + (alpha(4) - pstar*alpha(3));
+
+nobeta = - z / norm(z)^2 * alpha(3);
 % (y' * beta + alpha(4))/(z' * beta + alpha(3)) - pstar
 
 % beta = rand(2,1);
