@@ -1,4 +1,4 @@
-function [ranges,resultStore] =  main_multiTest()
+function [ranges,resultStore] =  main_multiTest_state()
     clear;
     close all;
 
@@ -8,14 +8,15 @@ function [ranges,resultStore] =  main_multiTest()
 
      plane_inclinationRange = linspace(-10,10,7).*(pi/180);
 
-     qRange =linspace(-pi/4,pi/4,6);
+     qRange =linspace(-pi/4,pi/4,7);
      %dampRange = stiffnessRange./10;
-     qDRange = linspace(-pi/4,pi/4,6);%stiffnessRange(1)./100;
+     qDRange = linspace(-pi/4,pi/4,7);%stiffnessRange(1)./100;
      
      ranges.plane_inclinationRange = plane_inclinationRange;
      ranges.qDRange = qDRange;
      ranges.qRange = qRange;
      
+     disp(ranges);% pause;
      addpath(genpath('utilities'));
 
     clc;
@@ -60,16 +61,26 @@ function [ranges,resultStore] =  main_multiTest()
             for qDCtr =1:length(qDRange)
                 
                 inclination = plane_inclinationRange(inclCtr);
+                
+                q = qRange(qCtr);
+                qD = qDRange(qDCtr);
+                
+                if(q == 0 && qD == 0)
+                    q = q+0.01;
+                end
+                
+               % if(qD == 0)
+               %     qD = qD+0.01;
+               % end
+                
                 if(inclination == 0)
                     inclination = inclination+0.01;
                 end
-                q = qRange(qCtr);
-                qD = qDRange(qDCtr);
                 fprintf('\n----Next run, phi: %2.2f, q(tf): %2.2f, dq/dt(tf) :%2.2f----\n',inclination, q, qD);
                 [betaStar] = optimalImpedance(inclination,q,qD,model);
                 stiffness = betaStar(1); 
                 damping = betaStar(2);
-                
+                fprintf('Optimal Stiffness : %2.2f,  Damping %2.2f \n',stiffness,damping);
                 [multiTestResult(inclCtr,qCtr,qDCtr),CoPResult(inclCtr,qCtr,qDCtr),timeToCoPResult(inclCtr,qCtr,qDCtr)] = multiTest(inclination,stiffness,damping,model,rotI);
             end
         end
@@ -115,7 +126,7 @@ function [wholeSolution,CoPTerminal,timeToCoP] =  multiTest(plane_incl,stiffness
 
     xpos_0 = [0; 
               0; 
-              0.5;...
+              0.15;...
               quaternionFromEulerRotation(0, [1;0;0]);...
                q];
 
