@@ -1,5 +1,8 @@
-function [betaStar] = optimalImpedance(phi,q,qDot,model)
+function [betaStar] = optimalImpedance(phi,q,qDot,model,mode)
 
+    if(nargin<5)
+        mode = 'verboseMode';
+    end
 
     e3 = zeros(6,1); e3(3) = 1;
     e4 = zeros(6,1); e4(4) = 1;
@@ -41,8 +44,9 @@ function [betaStar] = optimalImpedance(phi,q,qDot,model)
     
     if(any(betaStar<0))
      h = X*Ibar'*(e4 - Pd*e3) ;
-    
-         fprintf('Negative impedance solution! Optimising on null space\n');
+         if(strcmp(mode,'silentMode')~=1)
+            fprintf('Negative impedance solution! Optimising on null space\n');
+         end
        % fprintf('old : \n');
         %disp(betaStar);
         
@@ -55,6 +59,8 @@ function [betaStar] = optimalImpedance(phi,q,qDot,model)
     
     %% verification
     cost = e4'*(Ibar*X'*betaStar + alpha_of_q) - Pd*e3'*(Ibar*X'*betaStar + alpha_of_q);
-    fprintf('Cost Function : %2.2f\n',cost);
+    if(strcmp(mode,'silentMode')~=1)
+        fprintf('Cost Function : %2.2f\n',cost);
+    end
     
 end
