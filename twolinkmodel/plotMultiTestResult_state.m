@@ -50,8 +50,6 @@ Jtotal = (resultStore.CoPResult - model.foot.length/2*ones(size(resultStore.CoPR
 cols1 =  autumn(length(ranges.plane_inclinationRange));
 cols2 =  winter(length(ranges.plane_inclinationRange));
 
-figure(1); %stiffness vs orientation
-
 stiffnessRange = zeros(length(ranges.plane_inclinationRange),length(ranges.qRange),length(ranges.qDRange));
 dampingRange = zeros(length(ranges.plane_inclinationRange),length(ranges.qRange),length(ranges.qDRange));
 
@@ -85,7 +83,10 @@ status = zeros(length(ranges.plane_inclinationRange),length(ranges.qRange),lengt
  qdL = length(ranges.qDRange);
 
  
-figure(1);
+fH = figure;%('units','normalized','outerposition',[0 0 1 1]);
+% axes1 = axes('Parent',fH,'FontSize',16);
+% box(axes1,'on');
+% hold(axes1,'all');
 %chosen_inclCtr1 = [2, 6];
 qChosenCtr1 = 2;
 qDChosenCtr1 = 1;
@@ -103,26 +104,45 @@ qDChosen1 = ranges.qDRange(qDChosenCtr1);
 qDChosen2 = ranges.qDRange(qDChosenCtr2);
 qDChosen3 = ranges.qDRange(qDChosenCtr3);
 
-plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr1,qDChosenCtr1),'-ob','lineWidth',2);hold on;
-plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr2,qDChosenCtr2),'-or','lineWidth',2);
-plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr3,qDChosenCtr3),'-ok','lineWidth',2);
+plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr1,qDChosenCtr1),'-ob','lineWidth',5.0);hold on;
+plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr2,qDChosenCtr2),'-or','lineWidth',5.0);
+plot(ranges.plane_inclinationRange,stiffness(:,qChosenCtr3,qDChosenCtr3),'-ok','lineWidth',5.0);
 axis tight; grid on;
-legend(sprintf('q = %2.2f, \dot{q} = %2.2f',qChosen1,qDChosen1),sprintf('q = %2.2f, qD = %2.2f',qChosen2,qDChosen2),sprintf('q = %2.2f, qD = %2.2f',qChosen3,qDChosen3));
+set(gca,'FontSize',36)
 
-xlabel('Surface Orientation (\phi)');
-ylabel('Optimal Stiffness');
+leg = legend(sprintf('q = %2.2f, qdot = %2.2f',qChosen1,qDChosen1),sprintf('q = %2.2f, qdot = %2.2f',qChosen2,qDChosen2),sprintf('q = %2.2f, qdot = %2.2f',qChosen3,qDChosen3));
+set(leg,'Interpreter','latex','FontSize',48);
 
-figure(2);
-plot(ranges.plane_inclinationRange,damping(:,qChosenCtr1,qDChosenCtr1),'-ob','lineWidth',2);hold on;
-plot(ranges.plane_inclinationRange,damping(:,qChosenCtr2,qDChosenCtr2),'-or','lineWidth',2);
-plot(ranges.plane_inclinationRange,damping(:,qChosenCtr3,qDChosenCtr3),'-ok','lineWidth',2);
+xlabel('Surface Orientation (\phi) [rad]','FontSize',48);
+ylabel('Optimal Stiffness [Nm/rad]','FontSize',48);
+set(gcf, 'Position', get(0,'Screensize'));
+
+set(gcf, 'PaperPosition', [0 0 30 20]); %Position plot at left hand corner with width 5 and height 5.
+set(gcf, 'PaperSize', [30 20]); %Set the paper to have width 5 and height 5.
+saveas(gcf, 'stiff_over_inclination', 'pdf') %Save figure
+
+
+fH = figure;%('units','normalized','outerposition',[0 0 1 1]);
+plot(ranges.plane_inclinationRange,damping(:,qChosenCtr1,qDChosenCtr1),'-ob','lineWidth',5.0);hold on;
+plot(ranges.plane_inclinationRange,damping(:,qChosenCtr2,qDChosenCtr2),'-or','lineWidth',5.0);
+plot(ranges.plane_inclinationRange,damping(:,qChosenCtr3,qDChosenCtr3),'-ok','lineWidth',5.0);
 axis tight; grid on;
+set(gca,'FontSize',36)
 %legend(sprintf('q = %2.2f, \dot{q} = %2.2f',qChosen1,qDChosen1),sprintf('q = %2.2f, qD = %2.2f',qChosen2,qDChosen2));
-legend(sprintf('q = %2.2f, \dot{q} = %2.2f',qChosen1,qDChosen1),sprintf('q = %2.2f, qD = %2.2f',qChosen2,qDChosen2),sprintf('q = %2.2f, qD = %2.2f',qChosen3,qDChosen3));
+leg = legend(sprintf('q = %2.2f, qdot = %2.2f',qChosen1,qDChosen1),sprintf('q = %2.2f, qdot = %2.2f',qChosen2,qDChosen2),sprintf('q = %2.2f, qdot = %2.2f',qChosen3,qDChosen3));
 
-xlabel('Surface Orientation (\phi)');
-ylabel('Optimal Damping');
+set(leg,'Interpreter','latex','FontSize',48);
+xlabel('Surface Orientation (\phi) [rad]','FontSize',48);
+ylabel('Optimal Damping [Nm s/rad]','FontSize',48);
+set(gcf, 'Position', get(0,'Screensize'));
 
+set(gcf, 'PaperPosition', [0 0 30 20]); %Position plot at left hand corner with width 5 and height 5.
+set(gcf, 'PaperSize', [30 20]); %Set the paper to have width 5 and height 5.
+saveas(gcf, 'damp_over_inclination', 'pdf') %Save figure
+
+% saveTightFigure(fH, 'damp_over_inclination.pdf');
+% print(fH, '-deps', 'damp_over_inclination.eps');
+% printImage(fH,'damp_over_inclination.pdf');
 
 % %figure(1);
 % for j = [1,4,7]

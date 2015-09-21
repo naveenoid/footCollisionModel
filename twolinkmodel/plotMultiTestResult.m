@@ -22,16 +22,25 @@ else
 
         figure;
         contourf(ranges.stiffnessRange,ranges.dampRange,squeeze(Jtotal(i,:,:)) );  
-        xlabel('K'); ylabel('b'); zlabel('J');   
-        title(sprintf('Orientation = %2.2f',ranges.plane_inclinationRange(i)));
+        xlabel('Stiffness [Nm/rad]','FontSize',48); 
+        ylabel('Damping [Nms/rad]','FontSize',48); 
+        zlabel('Cost','FontSize',48);   
+        title(sprintf('Orientation = %2.2f',ranges.plane_inclinationRange(i)), 'FontSize',42);
 %optimalVals.stiffnessMean = stiffnessMean;
 %    optimalVals.dampingMean = dampingMean;
     hold on;
     %    plot(optimalVals.stiffnessMean(i),optimalVals.dampingMean(i),'ko','LineWidth',2);
-        set(gca,'FontSize',16);
-        set(gcf,'Renderer','OpenGL');
+        
+%         print('-dpng','-r400',strcat(plotFigBaseName,...
+%         sprintf('%d',round(10*ranges.plane_inclinationRange(i)))),'-opengl');
+    
+        set(gcf, 'Position', get(0,'Screensize'));
+        set(gcf, 'PaperPosition', [0 0 30 20]); %Position plot at left hand corner with width 5 and height 5.
+        set(gcf, 'PaperSize', [30 20]); %Set the paper to have width 5 and height 5.
+%         saveas(gcf, strcat(plotFigBaseName,...
+%         sprintf('%d',round(10*ranges.plane_inclinationRange(i)))), '-opengl','pdf') %Save figure
         print('-dpng','-r400',strcat(plotFigBaseName,...
-        sprintf('%d',round(10*ranges.plane_inclinationRange(i)))),'-opengl');
+        sprintf('%d',round(100*ranges.plane_inclinationRange(i)))),'-opengl');
 
     end
 end
