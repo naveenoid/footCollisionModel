@@ -40,7 +40,7 @@ stiff = [5, 8, 10, 15, 20, 30]';%, 80]';
 stiff = stiff ./ 180 .* pi;
 
 figure;
-
+cols = autumn(6);
 doPaper = 0;
 if (exist('plotForPaper', 'var') && plotForPaper == 1)
     doPaper = 1;
@@ -78,6 +78,27 @@ if (doPaper)
     saveas(gcf, 'gazebo_plots', 'pdf') %Save figure
 end
 
+Jtotal = zeros(6,6);
+
+Jtotal(:,1) = J_m10;
+Jtotal(:,2) = J_m7_5;
+Jtotal(:,3) = J_m5;
+Jtotal(:,4) = J_5;
+Jtotal(:,5) = J_7_5;
+Jtotal(:,6) = J_10;
+
+disp(Jtotal);
+
+disp('blah');
+
+Orientation = [-10,-7.5,-5,5,7.5,10];
+figure;
+contourf(stiff,Orientation,Jtotal);
+xlabel('Stiffness [Nm/rad]');
+ylabel('Surface Orientation \phi [rad]');colorbar;colormap(winter)
+    set(gcf, 'PaperPosition', [0 0 30 20]); %Position plot at left hand corner with width 5 and height 5.
+    set(gcf, 'PaperSize', [30 20]); %Set the paper to have width 5 and height 5.
+    saveas(gcf, 'gazebo_surf_plots', 'pdf') %Save figure
 end
 
 
