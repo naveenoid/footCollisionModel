@@ -94,11 +94,15 @@ disp('blah');
 Orientation = [-10,-7.5,-5,5,7.5,10];
 figure;
 contourf(stiff,Orientation,Jtotal);
-xlabel('Stiffness [Nm/rad]');
-ylabel('Surface Orientation \phi [rad]');colorbar;colormap(winter)
+xlabel('Stiffness [Nm/rad]', 'FontSize',labelsFontSize);
+ylabel('Surface Orientation \phi [rad]','FontSize', labelsFontSize);colorbar;colormap(winter)
+set(gca,'FontSize',axisFontSize);
+
+if (doPaper)
     set(gcf, 'PaperPosition', [0 0 30 20]); %Position plot at left hand corner with width 5 and height 5.
     set(gcf, 'PaperSize', [30 20]); %Set the paper to have width 5 and height 5.
     saveas(gcf, 'gazebo_surf_plots', 'pdf') %Save figure
+end
 end
 
 

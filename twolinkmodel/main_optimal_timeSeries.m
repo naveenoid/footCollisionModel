@@ -79,8 +79,8 @@ function [wholeSolution,model,environment] =  main_optimal_timeSeries(plane_incl
     %stiffnessMean(inclCtr) = betaStar(1); 
     %dampingMean(inclCtr) = betaStar(2);
     
-    impCtrlParams.damp = betaStar(1);%0.5;
-    impCtrlParams.stiffness =  betaStar(2);%10;
+    impCtrlParams.damp = betaStar(2);%0.5;
+    impCtrlParams.stiffness =  betaStar(1);%10;
 
     impedCtrl = @(t,x)impedanceCtrl(t,x, 0, impCtrlParams);
     plots = 'noPlots'; %noPlots or makePlots
